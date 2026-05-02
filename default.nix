@@ -1,4 +1,9 @@
-{ pkgs, lib, config, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 let
   home = config.home.homeDirectory;
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
@@ -7,76 +12,226 @@ let
 
   envMcp = env: bin: {
     command = envCmd;
-    args = [ "-f" "${work}/env/dev/${env}" "${work}/dist/mcp-servers/${bin}" ];
+    args = [
+      "-f"
+      "${work}/env/dev/${env}"
+      "${work}/dist/mcp-servers/${bin}"
+    ];
   };
 
   mcpServers = {
     bestiary = {
       command = "uvx";
-      args = [ "--with" "yt-dlp" "--from" "git+https://github.com/blackhat-7/bestiary.git@main" "bestiary" "serve" ];
+      args = [
+        "--with"
+        "yt-dlp"
+        "--from"
+        "git+https://github.com/blackhat-7/bestiary.git@main"
+        "bestiary"
+        "serve"
+      ];
     };
     github = {
       type = "http";
       url = "https://api.githubcopilot.com/mcp/";
-      headers = { Authorization = "Bearer \${GITHUB_MCP_TOKEN}"; };
+      headers = {
+        Authorization = "Bearer \${GITHUB_MCP_TOKEN}";
+      };
     };
-    chrome-devtools = { command = "npx"; args = [ "-y" "chrome-devtools-mcp@latest" ]; };
+    chrome-devtools = {
+      command = "npx";
+      args = [
+        "-y"
+        "chrome-devtools-mcp@latest"
+      ];
+    };
     cloudsql-reader = envMcp "cloudsql-reader/app.env" "cloudsql-reader";
     grafana-loki-reader = envMcp "grafana-loki-reader/app.env" "grafana-loki-reader";
     mongo-reader = envMcp "mongo-reader/app.env" "mongo-reader";
     stage-mongo-reader = envMcp "mongo-reader/stage-app.env" "mongo-reader";
     sentry-reader = envMcp "sentry-reader/app.env" "sentry-reader";
-    arxiv = { command = "arxiv-mcp-server"; args = [ ]; env = { ARXIV_STORAGE_PATH = "~/Downloads/papers"; }; };
-    playwright = { command = "npx"; args = [ "@playwright/mcp@latest" ]; };
-    linear = { command = "npx"; args = [ "-y" "@tacticlaunch/mcp-linear" ]; env = { LINEAR_API_TOKEN = "\${LINEAR_API_KEY}"; }; };
+    arxiv = {
+      command = "arxiv-mcp-server";
+      args = [ ];
+      env = {
+        ARXIV_STORAGE_PATH = "~/Downloads/papers";
+      };
+    };
+    playwright = {
+      command = "npx";
+      args = [ "@playwright/mcp@latest" ];
+    };
+    linear = {
+      command = "npx";
+      args = [
+        "-y"
+        "@tacticlaunch/mcp-linear"
+      ];
+      env = {
+        LINEAR_API_TOKEN = "\${LINEAR_API_KEY}";
+      };
+    };
   };
 
   opencodeEnabled = {
-    bestiary = true; github = true; cloudsql-reader = true; arxiv = true;
+    bestiary = true;
+    github = true;
+    cloudsql-reader = true;
+    arxiv = true;
   };
-  piMcpServers = builtins.mapAttrs (_: v: builtins.removeAttrs v [ "disabled" ]) mcpServers;
-  opencodeMcpServer = name: v:
-    if v ? url then {
-      type = "remote"; url = v.url; enabled = opencodeEnabled.${name} or false;
-    } // lib.optionalAttrs (v ? headers) {
-      headers = builtins.mapAttrs (_: lib.replaceStrings [ "\${" "}" ] [ "{env:" "}" ]) v.headers;
-    } else {
-      type = "local"; command = [ v.command ] ++ (v.args or [ ]); enabled = opencodeEnabled.${name} or false;
-    } // lib.optionalAttrs (v ? env) { environment = v.env; };
+  piMcpServer =
+    name: v:
+    let
+      base = builtins.removeAttrs v [ "disabled" ];
+    in
+    base
+    // {
+      lifecycle = v.lifecycle or "lazy";
+    }
+    // lib.optionalAttrs (name == "github") {
+      headers = builtins.removeAttrs (base.headers or { }) [ "Authorization" ];
+      auth = "bearer";
+      bearerTokenEnv = "GITHUB_MCP_TOKEN";
+    };
+  piMcpServers = builtins.mapAttrs piMcpServer mcpServers;
+  opencodeMcpServer =
+    name: v:
+    if v ? url then
+      {
+        type = "remote";
+        url = v.url;
+        enabled = opencodeEnabled.${name} or false;
+      }
+      // lib.optionalAttrs (v ? headers) {
+        headers = builtins.mapAttrs (_: lib.replaceStrings [ "\${" "}" ] [ "{env:" "}" ]) v.headers;
+      }
+    else
+      {
+        type = "local";
+        command = [ v.command ] ++ (v.args or [ ]);
+        enabled = opencodeEnabled.${name} or false;
+      }
+      // lib.optionalAttrs (v ? env) { environment = v.env; };
 
   mcpNames = builtins.attrNames mcpServers;
   opencodeConfig = {
     "$schema" = "https://opencode.ai/config.json";
     permission = {
-      "*" = "ask"; external_directory = "allow"; websearch = "allow"; glob = "allow"; grep = "allow";
-      list = "allow"; lsp = "allow"; read = "allow"; task = "allow"; todoread = "allow";
-      todowrite = "allow"; webfetch = "allow"; skill = { "*" = "allow"; };
-    } // builtins.listToAttrs (map (name: { name = "${name}_*"; value = "allow"; }) mcpNames);
+      "*" = "ask";
+      external_directory = "allow";
+      websearch = "allow";
+      glob = "allow";
+      grep = "allow";
+      list = "allow";
+      lsp = "allow";
+      read = "allow";
+      task = "allow";
+      todoread = "allow";
+      todowrite = "allow";
+      webfetch = "allow";
+      skill = {
+        "*" = "allow";
+      };
+    }
+    // builtins.listToAttrs (
+      map (name: {
+        name = "${name}_*";
+        value = "allow";
+      }) mcpNames
+    );
     provider.local-llm = {
-      npm = "@ai-sdk/openai-compatible"; name = "Local LLM";
-      options = { baseURL = "http://100.64.0.1:6868/v1/"; apiKey = "none"; };
-      models = { "qwen3.5-9b".name = "qwen3.5-9b"; "gemma-4-26B-A4B".name = "gemma-4-26B-A4B"; };
+      npm = "@ai-sdk/openai-compatible";
+      name = "Local LLM";
+      options = {
+        baseURL = "http://100.64.0.1:6868/v1/";
+        apiKey = "none";
+      };
+      models = {
+        "qwen3.5-9b".name = "qwen3.5-9b";
+        "gemma-4-26B-A4B".name = "gemma-4-26B-A4B";
+      };
     };
     small_model = "github-copilot/gpt-5-mini";
     mcp = builtins.mapAttrs opencodeMcpServer mcpServers;
   };
 
   claudeMcpAllows = [
-    "mcp__cloudsql-reader" "mcp__mongo-reader" "mcp__stage-mongo-reader" "mcp__grafana-loki-reader"
-    "mcp__sentry-reader" "mcp__arxiv" "mcp__bestiary" "mcp__chrome-devtools" "mcp__github"
-    "mcp__linear__linear_getViewer" "mcp__linear__linear_getOrganization" "mcp__linear__linear_getUsers"
-    "mcp__linear__linear_getLabels" "mcp__linear__linear_getTeams" "mcp__linear__linear_getProjects"
-    "mcp__linear__linear_getIssues" "mcp__linear__linear_getIssueById" "mcp__linear__linear_searchIssues"
-    "mcp__linear__linear_getComments" "mcp__linear__linear_getProjectIssues" "mcp__linear__linear_getCycles"
-    "mcp__linear__linear_getActiveCycle" "mcp__linear__linear_getInitiatives" "mcp__linear__linear_getInitiativeById"
-    "mcp__linear__linear_getInitiativeProjects" "mcp__linear__linear_getIssueHistory"
+    "mcp__cloudsql-reader"
+    "mcp__mongo-reader"
+    "mcp__stage-mongo-reader"
+    "mcp__grafana-loki-reader"
+    "mcp__sentry-reader"
+    "mcp__arxiv"
+    "mcp__bestiary"
+    "mcp__chrome-devtools"
+    "mcp__github"
+    "mcp__linear__linear_getViewer"
+    "mcp__linear__linear_getOrganization"
+    "mcp__linear__linear_getUsers"
+    "mcp__linear__linear_getLabels"
+    "mcp__linear__linear_getTeams"
+    "mcp__linear__linear_getProjects"
+    "mcp__linear__linear_getIssues"
+    "mcp__linear__linear_getIssueById"
+    "mcp__linear__linear_searchIssues"
+    "mcp__linear__linear_getComments"
+    "mcp__linear__linear_getProjectIssues"
+    "mcp__linear__linear_getCycles"
+    "mcp__linear__linear_getActiveCycle"
+    "mcp__linear__linear_getInitiatives"
+    "mcp__linear__linear_getInitiativeById"
+    "mcp__linear__linear_getInitiativeProjects"
+    "mcp__linear__linear_getIssueHistory"
   ];
   claudeSettings = {
-    "$schema" = "https://json.schemastore.org/claude-code-settings.json"; viewMode = "verbose";
-    statusLine = { type = "command"; command = "bash ${home}/.claude/statusline-command.sh"; };
-    permissions = { allow = [ "Read" "Glob" "Grep" "LSP" "Task" "WebFetch" "WebSearch" ] ++ claudeMcpAllows; deny = [ ]; ask = [ "Edit" "Write" ]; };
-    enabledPlugins = { "pyright-lsp@claude-plugins-official" = true; "gopls-lsp@claude-plugins-official" = true; };
-    hooks = builtins.listToAttrs (map (event: { name = event; value = [{ matcher = ""; hooks = [{ type = "command"; command = "bash ${home}/.claude/notify.sh"; }]; }]; }) [ "Notification" "Stop" ]);
+    "$schema" = "https://json.schemastore.org/claude-code-settings.json";
+    viewMode = "verbose";
+    statusLine = {
+      type = "command";
+      command = "bash ${home}/.claude/statusline-command.sh";
+    };
+    permissions = {
+      allow = [
+        "Read"
+        "Glob"
+        "Grep"
+        "LSP"
+        "Task"
+        "WebFetch"
+        "WebSearch"
+      ]
+      ++ claudeMcpAllows;
+      deny = [ ];
+      ask = [
+        "Edit"
+        "Write"
+      ];
+    };
+    enabledPlugins = {
+      "pyright-lsp@claude-plugins-official" = true;
+      "gopls-lsp@claude-plugins-official" = true;
+    };
+    hooks = builtins.listToAttrs (
+      map
+        (event: {
+          name = event;
+          value = [
+            {
+              matcher = "";
+              hooks = [
+                {
+                  type = "command";
+                  command = "bash ${home}/.claude/notify.sh";
+                }
+              ];
+            }
+          ];
+        })
+        [
+          "Notification"
+          "Stop"
+        ]
+    );
   };
 
   statuslineScript = ''
@@ -103,31 +258,60 @@ let
     printf "\033[0;37m%s%s\033[0m\n" "$ctx_info" "$model_info"
   '';
 
-  notifyScript = if isDarwin then ''
-    #!/usr/bin/env bash
-    input=$(cat); event=$(printf '%s' "$input" | jq -r '.hook_event_name // ""'); cwd=$(printf '%s' "$input" | jq -r '.cwd // ""')
-    session_id=$(printf '%s' "$input" | jq -r '.session_id // ""'); message=$(printf '%s' "$input" | jq -r '.message // ""')
-    if [ "$event" = "Notification" ] && printf '%s' "$message" | grep -qiE "waiting for (your )?input"; then exit 0; fi
-    front_bundle=$(lsappinfo info -only bundleid "$(lsappinfo front)" 2>/dev/null | cut -d'"' -f4)
-    [ "$front_bundle" = "net.kovidgoyal.kitty" ] && exit 0
-    label=$(basename "$cwd" 2>/dev/null); [ -z "$label" ] && label="claude"
-    [ "$event" = "Stop" ] && message="Done"; title="Claude · $label"
-    group="claude-code"; [ -n "$session_id" ] && group="claude-code-$session_id"
-    args=(-title "$title" -message "$message" -group "$group"); [ -f "$HOME/.claude/icon.png" ] && args+=(-appIcon "$HOME/.claude/icon.png")
-    ${pkgs.terminal-notifier}/bin/terminal-notifier "''${args[@]}"
-  '' else ''
-    #!/usr/bin/env bash
-    input=$(cat); event=$(printf '%s' "$input" | jq -r '.hook_event_name // ""'); cwd=$(printf '%s' "$input" | jq -r '.cwd // ""')
-    session_id=$(printf '%s' "$input" | jq -r '.session_id // ""'); label=$(basename "$cwd" 2>/dev/null); [ -z "$label" ] && label="claude"
-    urgency="critical"; message=$(printf '%s' "$input" | jq -r '.message // ""'); [ "$event" = "Stop" ] && urgency="normal" && message="Done"
-    args=(-u "$urgency" -a "Claude Code"); [ -f "$HOME/.claude/icon.png" ] && args+=(-i "$HOME/.claude/icon.png"); [ -n "$session_id" ] && args+=(-h "string:x-dunst-stack-tag:claude-$session_id")
-    notify-send "''${args[@]}" "Claude · $label" "$message"
-  '';
+  notifyScript =
+    if isDarwin then
+      ''
+        #!/usr/bin/env bash
+        input=$(cat); event=$(printf '%s' "$input" | jq -r '.hook_event_name // ""'); cwd=$(printf '%s' "$input" | jq -r '.cwd // ""')
+        session_id=$(printf '%s' "$input" | jq -r '.session_id // ""'); message=$(printf '%s' "$input" | jq -r '.message // ""')
+        if [ "$event" = "Notification" ] && printf '%s' "$message" | grep -qiE "waiting for (your )?input"; then exit 0; fi
+        front_bundle=$(lsappinfo info -only bundleid "$(lsappinfo front)" 2>/dev/null | cut -d'"' -f4)
+        [ "$front_bundle" = "net.kovidgoyal.kitty" ] && exit 0
+        label=$(basename "$cwd" 2>/dev/null); [ -z "$label" ] && label="claude"
+        [ "$event" = "Stop" ] && message="Done"; title="Claude · $label"
+        group="claude-code"; [ -n "$session_id" ] && group="claude-code-$session_id"
+        args=(-title "$title" -message "$message" -group "$group"); [ -f "$HOME/.claude/icon.png" ] && args+=(-appIcon "$HOME/.claude/icon.png")
+        ${pkgs.terminal-notifier}/bin/terminal-notifier "''${args[@]}"
+      ''
+    else
+      ''
+        #!/usr/bin/env bash
+        input=$(cat); event=$(printf '%s' "$input" | jq -r '.hook_event_name // ""'); cwd=$(printf '%s' "$input" | jq -r '.cwd // ""')
+        session_id=$(printf '%s' "$input" | jq -r '.session_id // ""'); label=$(basename "$cwd" 2>/dev/null); [ -z "$label" ] && label="claude"
+        urgency="critical"; message=$(printf '%s' "$input" | jq -r '.message // ""'); [ "$event" = "Stop" ] && urgency="normal" && message="Done"
+        args=(-u "$urgency" -a "Claude Code"); [ -f "$HOME/.claude/icon.png" ] && args+=(-i "$HOME/.claude/icon.png"); [ -n "$session_id" ] && args+=(-h "string:x-dunst-stack-tag:claude-$session_id")
+        notify-send "''${args[@]}" "Claude · $label" "$message"
+      '';
 
-  piSettings = builtins.toJSON { skills = [ "${home}/.claude/skills" ]; permissionLevel = "minimal"; permissionMode = "ask"; defaultProvider = "openai-codex"; compaction = { enabled = true; }; };
-  piKeybindings = builtins.toJSON { "tui.input.newLine" = [ "shift+enter" "alt+enter" ]; "app.message.followUp" = [ "shift+alt+enter" ]; };
-  mcpConfig = builtins.toJSON { settings = { directTools = false; }; mcpServers = piMcpServers; };
-  opencodePackageJson = builtins.toJSON { private = true; type = "module"; dependencies = { "@opencode-ai/plugin" = "latest"; }; };
+  piSettings = builtins.toJSON {
+    skills = [ "${home}/.claude/skills" ];
+    permissionLevel = "minimal";
+    permissionMode = "ask";
+    defaultProvider = "openai-codex";
+    compaction = {
+      enabled = true;
+    };
+  };
+  piKeybindings = builtins.toJSON {
+    "tui.input.newLine" = [
+      "shift+enter"
+      "alt+enter"
+    ];
+    "app.message.followUp" = [ "shift+alt+enter" ];
+  };
+  mcpConfig = builtins.toJSON {
+    settings = {
+      directTools = false;
+    };
+    mcpServers = piMcpServers;
+  };
+  opencodePackageJson = builtins.toJSON {
+    private = true;
+    type = "module";
+    dependencies = {
+      "@opencode-ai/plugin" = "latest";
+    };
+  };
 
   opencodeAgentReviewer = ''
     ---
@@ -171,7 +355,8 @@ let
 
     End with: REVIEW.md written. Verdict: <SHIP | NEEDS-FIXES | RE-PLAN>.
   '';
-in {
+in
+{
   home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi/agent" "$HOME/.config/mcp"
     rm -f "$HOME/.claude/statusline-command.sh"; cat <<'EOF' > "$HOME/.claude/statusline-command.sh"
