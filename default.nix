@@ -283,11 +283,83 @@ let
         notify-send "''${args[@]}" "Claude · $label" "$message"
       '';
 
+  piChutesProviderExtension = ''
+    import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
+    type ChutesModel = {
+      id: string;
+      name?: string;
+      pricing?: {
+        prompt?: number;
+        completion?: number;
+        input_cache_read?: number;
+      };
+      price?: {
+        input?: { usd?: number };
+        output?: { usd?: number };
+        input_cache_read?: { usd?: number };
+      };
+      max_model_len?: number;
+      max_tokens?: number;
+    };
+
+    type ChutesModelsResponse = {
+      data?: ChutesModel[];
+    };
+
+    const CHUTES_BASE_URL = "https://llm.chutes.ai/v1";
+
+    function price(model: ChutesModel, key: "input" | "output" | "input_cache_read", fallbackKey: "prompt" | "completion" | "input_cache_read") {
+      return model.price?.[key]?.usd ?? model.pricing?.[fallbackKey] ?? 0;
+    }
+
+    export default async function (pi: ExtensionAPI) {
+      const response = await fetch(CHUTES_BASE_URL + "/models");
+      if (!response.ok) throw new Error("Failed to fetch Chutes models: " + response.status + " " + response.statusText);
+
+      const payload = (await response.json()) as ChutesModelsResponse;
+      const models = (payload.data ?? []).map((model) => {
+        const contextWindow = model.max_model_len ?? 128000;
+
+        return {
+          id: model.id,
+          name: model.name ?? model.id,
+          reasoning: false,
+          input: ["text"] as const,
+          cost: {
+            input: price(model, "input", "prompt"),
+            output: price(model, "output", "completion"),
+            cacheRead: price(model, "input_cache_read", "input_cache_read"),
+            cacheWrite: 0,
+          },
+          contextWindow,
+          maxTokens: model.max_tokens ?? Math.min(contextWindow, 16384),
+          compat: {
+            supportsDeveloperRole: false,
+            supportsReasoningEffort: false,
+          },
+        };
+      });
+
+      pi.registerProvider("chutes", {
+        name: "Chutes",
+        baseUrl: CHUTES_BASE_URL,
+        apiKey: "CHUTES_API_KEY",
+        api: "openai-completions",
+        models,
+      });
+    }
+  '';
+
   piSettings = builtins.toJSON {
     skills = [ "${home}/.claude/skills" ];
     permissionLevel = "minimal";
     permissionMode = "ask";
     defaultProvider = "openai-codex";
+    enabledModels = [
+      "openai-codex/*"
+      "chutes/**"
+    ];
     compaction = {
       enabled = true;
     };
@@ -298,6 +370,13 @@ let
       "alt+enter"
     ];
     "app.message.followUp" = [ "shift+alt+enter" ];
+  };
+  piWebSearchConfig = builtins.toJSON {
+    provider = "exa";
+    workflow = "none";
+    allowBrowserCookies = false;
+    youtube.enabled = false;
+    video.enabled = false;
   };
   mcpConfig = builtins.toJSON {
     settings = {
@@ -358,7 +437,7 @@ let
 in
 {
   home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi/agent" "$HOME/.config/mcp"
+    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.config/mcp"
     rm -f "$HOME/.claude/statusline-command.sh"; cat <<'EOF' > "$HOME/.claude/statusline-command.sh"
     ${statuslineScript}
     EOF
@@ -386,13 +465,19 @@ in
     ${piSettings}
     EOF
     if [[ -f "$HOME/.pi/agent/settings.json" ]]; then
-      ${pkgs.jq}/bin/jq -s '.[0] * .[1] | del(.enabledModels)' "$HOME/.pi/agent/settings.json" "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$HOME/.pi/agent/settings.json" "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
     else
-      ${pkgs.jq}/bin/jq 'del(.enabledModels)' "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
+      ${pkgs.jq}/bin/jq . "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
     fi
     mv "$HOME/.pi/agent/settings.json.tmp" "$HOME/.pi/agent/settings.json"; rm -f "$pi_settings_tmp"
+    rm -f "$HOME/.pi/agent/extensions/chutes-provider.ts"; cat <<'EOF' > "$HOME/.pi/agent/extensions/chutes-provider.ts"
+    ${piChutesProviderExtension}
+    EOF
     rm -f "$HOME/.pi/agent/keybindings.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/keybindings.json"
     ${piKeybindings}
+    EOF
+    rm -f "$HOME/.pi/web-search.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/web-search.json"
+    ${piWebSearchConfig}
     EOF
     rm -f "$HOME/.config/mcp/mcp.json" "$HOME/.config/mcp/mcp.catalog.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.config/mcp/mcp.json"
     ${mcpConfig}

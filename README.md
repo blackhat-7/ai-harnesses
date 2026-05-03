@@ -19,6 +19,7 @@ Home Manager writes:
 - `~/.config/opencode/agent/reviewer.md`
 - `~/.pi/agent/settings.json`
 - `~/.pi/agent/keybindings.json`
+- `~/.pi/web-search.json`
 - `~/.config/mcp/mcp.json`
 - `~/.config/mcp/mcp.catalog.json`
 
