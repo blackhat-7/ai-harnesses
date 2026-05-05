@@ -353,8 +353,6 @@ let
 
   piSettings = builtins.toJSON {
     skills = [ "${home}/.claude/skills" ];
-    permissionLevel = "minimal";
-    permissionMode = "ask";
     defaultProvider = "openai-codex";
     enabledModels = [
       "openai-codex/*"
@@ -363,6 +361,42 @@ let
     compaction = {
       enabled = true;
     };
+  };
+  piPermissionPolicy = builtins.toJSON {
+    defaultPolicy = {
+      tools = "ask";
+      bash = "ask";
+      mcp = "allow";
+      skills = "allow";
+      special = "ask";
+    };
+    tools = {
+      read = "allow";
+      grep = "allow";
+      find = "allow";
+      ls = "allow";
+      mcp = "allow";
+      web_search = "allow";
+      fetch_content = "allow";
+      get_search_content = "allow";
+      code_search = "allow";
+      todo = "allow";
+      subagent = "allow";
+      intercom = "allow";
+      contact_supervisor = "allow";
+      bash = "ask";
+      write = "ask";
+      edit = "ask";
+    };
+    special = {
+      doom_loop = "deny";
+      external_directory = "allow";
+    };
+  };
+  piPermissionSystemConfig = builtins.toJSON {
+    debugLog = false;
+    permissionReviewLog = true;
+    yoloMode = false;
   };
   piKeybindings = builtins.toJSON {
     "tui.input.newLine" = [
@@ -437,7 +471,7 @@ let
 in
 {
   home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.config/mcp"
+    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.config/mcp"
     rm -f "$HOME/.claude/statusline-command.sh"; cat <<'EOF' > "$HOME/.claude/statusline-command.sh"
     ${statuslineScript}
     EOF
@@ -465,11 +499,17 @@ in
     ${piSettings}
     EOF
     if [[ -f "$HOME/.pi/agent/settings.json" ]]; then
-      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$HOME/.pi/agent/settings.json" "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1] | del(.permissionLevel, .permissionMode)' "$HOME/.pi/agent/settings.json" "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
     else
-      ${pkgs.jq}/bin/jq . "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
+      ${pkgs.jq}/bin/jq '. | del(.permissionLevel, .permissionMode)' "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
     fi
     mv "$HOME/.pi/agent/settings.json.tmp" "$HOME/.pi/agent/settings.json"; rm -f "$pi_settings_tmp"
+    rm -f "$HOME/.pi/agent/pi-permissions.jsonc"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/pi-permissions.jsonc"
+    ${piPermissionPolicy}
+    EOF
+    rm -f "$HOME/.pi/agent/extensions/pi-permission-system/config.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/extensions/pi-permission-system/config.json"
+    ${piPermissionSystemConfig}
+    EOF
     rm -f "$HOME/.pi/agent/extensions/chutes-provider.ts"; cat <<'EOF' > "$HOME/.pi/agent/extensions/chutes-provider.ts"
     ${piChutesProviderExtension}
     EOF

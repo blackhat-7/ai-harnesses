@@ -18,6 +18,8 @@ Home Manager writes:
 - `~/.config/opencode/package.json`
 - `~/.config/opencode/agent/reviewer.md`
 - `~/.pi/agent/settings.json`
+- `~/.pi/agent/pi-permissions.jsonc`
+- `~/.pi/agent/extensions/pi-permission-system/config.json`
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/web-search.json`
 - `~/.config/mcp/mcp.json`
@@ -25,11 +27,15 @@ Home Manager writes:
 
 Manual edits to those generated files are not the source of truth.
 
+## Package patches
+
+- Home Manager patches `pi-subagents` after install so child Pi processes expose the env metadata required by `pi-permission-system` subagent approval forwarding.
+
 ## Dropped
 
 - Claude Code Router config.
 - Fish `mcp-on`, `mcp-off`, `mcp-list` helpers.
-- The post-install patch that edited `permission-pi` package source. `permission-pi` itself remains installed.
+- The post-install patch that edited `permission-pi` package source.
 
 ## Audit portability
 
