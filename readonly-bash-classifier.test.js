@@ -1,0 +1,243 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+const { createReadonlyBashClassifier, execPrepareDefault, firstShellWord } = require("./readonly-bash-classifier.js");
+
+test("blocks direct runner when first shell word is runner path", async () => {
+  const { pi, emit } = fakePi();
+  const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
+  createReadonlyBashClassifier({ configPath, execPrepare: async () => ({ action: "rewrite", command: "/runner" }) })(pi);
+
+  const exact = await emit("tool_call", bashEvent("1", "/runner"));
+  assert.equal(exact.block, true);
+  const suffix = await emit("tool_call", bashEvent("2", "'/runner' --config /tmp/x"));
+  assert.equal(suffix.block, true);
+  const escaped = await emit("tool_call", bashEvent("3", "\\/runner --config /tmp/x"));
+  assert.equal(escaped.block, true);
+});
+
+test("pending lock keeps later safe calls on ask path until lifecycle clears", async () => {
+  const { pi, emit } = fakePi();
+  const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
+  let calls = 0;
+  createReadonlyBashClassifier({
+    configPath,
+    execPrepare: async () => {
+      calls++;
+      return { action: "rewrite", command: "/runner" };
+    },
+  })(pi);
+
+  const first = bashEvent("1", "pwd");
+  await emit("tool_call", first, { cwd: "/tmp" });
+  assert.equal(first.input.command, "/runner");
+
+  const second = bashEvent("2", "pwd");
+  await emit("tool_call", second, { cwd: "/tmp" });
+  assert.equal(second.input.command, "pwd");
+  assert.equal(calls, 1);
+
+  await emit("tool_execution_end", { toolCallId: "1" });
+  const third = bashEvent("3", "pwd");
+  await emit("tool_call", third, { cwd: "/tmp" });
+  assert.equal(third.input.command, "/runner");
+  assert.equal(calls, 2);
+});
+
+test("maps global and project settings plus dangerous env into guard constraints", async () => {
+  const dir = tdir();
+  const settingsPath = path.join(dir, "settings.json");
+  fs.writeFileSync(settingsPath, JSON.stringify({ shellPath: "/global/bash", shellCommandPrefix: "" }));
+  fs.mkdirSync(path.join(dir, ".pi"));
+  fs.writeFileSync(path.join(dir, ".pi", "settings.json"), JSON.stringify({ shellPath: "/project/bash", shellCommandPrefix: "source x" }));
+  const configPath = writeConfig(dir, { globalSettingsPath: settingsPath, trustedShell: "/trusted/bash", projectSettingsLookup: "cwd" });
+  const previous = snapshotEnv(["BASH_ENV", "ENV", "BASH_FUNC_x%%", "SHELLOPTS", "BASHOPTS"]);
+  process.env.BASH_ENV = path.join(dir, "bash-env");
+  process.env.ENV = path.join(dir, "env");
+  process.env["BASH_FUNC_x%%"] = "() { :; }";
+  process.env.SHELLOPTS = "extglob";
+  process.env.BASHOPTS = "globstar";
+  let captured;
+  try {
+    const { pi, emit } = fakePi();
+    createReadonlyBashClassifier({
+      configPath,
+      execPrepare: async (_cli, request) => {
+        captured = request;
+        return { action: "ask", reason: "test" };
+      },
+    })(pi);
+    await emit("tool_call", bashEvent("abc", "pwd"), { cwd: dir });
+  } finally {
+    restoreEnv(previous);
+  }
+
+  assert.equal(captured.requestID, "abc");
+  assert.equal(captured.cwd, dir);
+  assert.equal(captured.guard.shellPath, "/project/bash");
+  assert.equal(captured.guard.shellCommandPrefix, "source x");
+  assert.equal(captured.guard.expectedShellPath, "/trusted/bash");
+  assert.equal(captured.guard.dangerousEnv.BASH_ENV, path.join(dir, "bash-env"));
+  assert.equal(captured.guard.dangerousEnv.ENV, path.join(dir, "env"));
+  assert.equal(captured.guard.dangerousEnv["BASH_FUNC_x%%"], "() { :; }");
+  assert.equal(captured.guard.dangerousEnv.SHELLOPTS, "extglob");
+  assert.equal(captured.guard.dangerousEnv.BASHOPTS, "globstar");
+});
+
+test("mixed safe plus delayed ask keeps later safe command on ask path", async () => {
+  const { pi, emit } = fakePi();
+  const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
+  let resolveAsk;
+  const delayedAsk = new Promise((resolve) => {
+    resolveAsk = resolve;
+  });
+  createReadonlyBashClassifier({
+    configPath,
+    execPrepare: async (_cli, request) => {
+      if (request.requestID === "safe-1") return { action: "rewrite", command: "/runner" };
+      if (request.requestID === "ask-1") return delayedAsk;
+      return { action: "rewrite", command: "/runner" };
+    },
+  })(pi);
+
+  const safe1 = bashEvent("safe-1", "pwd");
+  await emit("tool_call", safe1, { cwd: "/tmp" });
+  assert.equal(safe1.input.command, "/runner");
+
+  const ask1 = bashEvent("ask-1", "pwd");
+  const askPromise = emit("tool_call", ask1, { cwd: "/tmp" });
+  const safe2 = bashEvent("safe-2", "pwd");
+  await emit("tool_call", safe2, { cwd: "/tmp" });
+  assert.equal(safe2.input.command, "pwd");
+
+  resolveAsk({ action: "ask", reason: "delayed" });
+  await askPromise;
+  assert.equal(ask1.input.command, "pwd");
+
+  await emit("tool_result", { toolCallId: "safe-1" });
+  const safe3 = bashEvent("safe-3", "pwd");
+  await emit("tool_call", safe3, { cwd: "/tmp" });
+  assert.equal(safe3.input.command, "/runner");
+});
+
+test("prepare ask/error responses fail closed without pending lock", async () => {
+  const { pi, emit } = fakePi();
+  const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
+  const responses = [
+    { action: "ask", reason: "no" },
+    new Error("boom"),
+    { action: "rewrite", command: "/runner" },
+  ];
+  createReadonlyBashClassifier({
+    configPath,
+    execPrepare: async () => {
+      const response = responses.shift();
+      if (response instanceof Error) throw response;
+      return response;
+    },
+  })(pi);
+
+  const first = bashEvent("1", "pwd");
+  await emit("tool_call", first);
+  assert.equal(first.input.command, "pwd");
+
+  const second = bashEvent("2", "pwd");
+  await emit("tool_call", second);
+  assert.equal(second.input.command, "pwd");
+
+  const third = bashEvent("3", "pwd");
+  await emit("tool_call", third);
+  assert.equal(third.input.command, "/runner");
+});
+
+test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () => {
+  const dir = tdir();
+  const hang = writeNodeScript(dir, "hang", "setTimeout(() => {}, 5000);");
+  await assert.rejects(() => execPrepareDefault(hang, { command: "pwd" }, 10));
+
+  const nonzero = writeNodeScript(dir, "nonzero", "process.exit(7);");
+  await assert.rejects(() => execPrepareDefault(nonzero, { command: "pwd" }, 1000));
+
+  const invalid = writeNodeScript(dir, "invalid", "process.stdout.write('not-json');");
+  await assert.rejects(() => execPrepareDefault(invalid, { command: "pwd" }, 1000));
+});
+
+test("dotfiles config uses settings extension only, impure source, and trusted path families", () => {
+  const nix = fs.readFileSync(path.join(__dirname, "default.nix"), "utf8");
+  assert.match(nix, /builtins\.fetchGit/);
+  assert.match(nix, /https:\/\/github\.com\/blackhat-7\/readonly-bash\.git/);
+  assert.match(nix, /ref = "main"/);
+  assert.match(nix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
+  assert.match(nix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
+  for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "nodejs", "python3"]) {
+    assert.match(nix, new RegExp(`pkgs\\.${pkg}`));
+  }
+  const darwinJustfile = fs.readFileSync(path.join(__dirname, "..", "nix-darwin", "Justfile"), "utf8");
+  const linuxJustfile = fs.readFileSync(path.join(__dirname, "..", "nix", "Justfile"), "utf8");
+  assert.match(darwinJustfile, /--impure/);
+  assert.match(darwinJustfile, /--refresh/);
+  assert.match(linuxJustfile, /--impure/);
+  assert.match(linuxJustfile, /--refresh/);
+});
+
+test("firstShellWord parses quoted and escaped runner paths", () => {
+  assert.equal(firstShellWord("  '/runner path' --flag"), "/runner path");
+  assert.equal(firstShellWord('/runner; rm -rf /'), "/runner");
+  assert.equal(firstShellWord("\\/runner --flag"), "/runner");
+});
+
+function fakePi() {
+  const handlers = new Map();
+  return {
+    pi: { on: (name, handler) => handlers.set(name, handler) },
+    emit: async (name, event, ctx = {}) => handlers.get(name)?.(event, ctx),
+  };
+}
+
+function bashEvent(toolCallId, command) {
+  return { toolName: "bash", toolCallId, input: { command } };
+}
+
+function writeConfig(dir, overrides = {}) {
+  const config = {
+    cliPath: "/bin/readonly-bash",
+    runnerPath: "/runner",
+    approvalDir: path.join(dir, "approvals"),
+    trustedShell: "/bin/bash",
+    trustedPath: "/bin:/usr/bin",
+    globalSettingsPath: path.join(dir, "settings.json"),
+    projectSettingsLookup: "none",
+    ...overrides,
+  };
+  if (!fs.existsSync(config.globalSettingsPath)) {
+    fs.writeFileSync(config.globalSettingsPath, JSON.stringify({ shellPath: config.trustedShell, shellCommandPrefix: "" }));
+  }
+  const configPath = path.join(dir, "readonly-bash.json");
+  fs.writeFileSync(configPath, JSON.stringify(config));
+  return configPath;
+}
+
+function writeNodeScript(dir, name, body) {
+  const file = path.join(dir, name + ".js");
+  fs.writeFileSync(file, "#!/usr/bin/env node\n" + body + "\n");
+  fs.chmodSync(file, 0o700);
+  return file;
+}
+
+function snapshotEnv(keys) {
+  return Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+}
+
+function restoreEnv(snapshot) {
+  for (const [key, value] of Object.entries(snapshot)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+}
+
+function tdir() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), "readonly-bash-js-"));
+}

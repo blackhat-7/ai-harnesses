@@ -1,0 +1,171 @@
+const { execFile } = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".pi/agent/readonly-bash.json");
+const DEFAULT_TIMEOUT_MS = 1000;
+
+function createReadonlyBashClassifier(options = {}) {
+  const state = { pendingToolCallId: null };
+  const configPath = options.configPath || DEFAULT_CONFIG_PATH;
+  const execPrepare = options.execPrepare || execPrepareDefault;
+
+  return function readonlyBashClassifier(pi) {
+    pi.on("tool_call", async (event, ctx = {}) => {
+      if (event.toolName !== "bash") return undefined;
+      const command = event.input && event.input.command;
+      if (typeof command !== "string") return undefined;
+
+      let config;
+      try {
+        config = loadConfig(configPath);
+      } catch {
+        return undefined;
+      }
+
+      if (firstShellWord(command) === config.runnerPath) {
+        return { block: true, reason: "Direct readonly-bash runner invocation is not allowed" };
+      }
+      if (state.pendingToolCallId) return undefined;
+
+      const request = buildPrepareRequest(config, event, ctx, command);
+      let response;
+      try {
+        response = await execPrepare(config.cliPath, request, config.prepareTimeoutMs || DEFAULT_TIMEOUT_MS);
+      } catch {
+        return undefined;
+      }
+
+      if (!response || response.action !== "rewrite" || typeof response.command !== "string") {
+        return undefined;
+      }
+      state.pendingToolCallId = event.toolCallId;
+      event.input.command = response.command;
+      return undefined;
+    });
+
+    const clearPending = (event) => {
+      if (state.pendingToolCallId && event.toolCallId === state.pendingToolCallId) {
+        state.pendingToolCallId = null;
+      }
+    };
+    pi.on("tool_result", clearPending);
+    pi.on("tool_execution_end", clearPending);
+  };
+}
+
+function loadConfig(configPath) {
+  return JSON.parse(fs.readFileSync(configPath, "utf8"));
+}
+
+function buildPrepareRequest(config, event, ctx, command) {
+  const cwd = ctx.cwd || process.cwd();
+  const settings = mergeSettings(readJSON(config.globalSettingsPath) || {}, readJSON(projectSettingsPath(config, cwd)) || {});
+  return {
+    requestID: event.toolCallId,
+    cwd,
+    command,
+    runnerPath: config.runnerPath,
+    trustedShell: config.trustedShell,
+    trustedPath: config.trustedPath,
+    approvalDir: config.approvalDir,
+    guard: {
+      dangerousEnv: dangerousEnv(process.env),
+      shellCommandPrefix: settings.shellCommandPrefix || "",
+      shellPath: settings.shellPath || "",
+      expectedShellPath: config.trustedShell,
+      host: "pi",
+    },
+  };
+}
+
+function projectSettingsPath(config, cwd) {
+  if (config.projectSettingsLookup !== "cwd") return undefined;
+  return path.join(cwd, ".pi", "settings.json");
+}
+
+function mergeSettings(globalSettings, projectSettings) {
+  return { ...globalSettings, ...projectSettings };
+}
+
+function readJSON(file) {
+  if (!file) return undefined;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+function dangerousEnv(env) {
+  const out = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (!value) continue;
+    if (key === "BASH_ENV" || key === "ENV" || key === "SHELLOPTS" || key === "BASHOPTS" || key.startsWith("BASH_FUNC_")) {
+      out[key] = String(value);
+    }
+  }
+  return out;
+}
+
+function execPrepareDefault(cliPath, request, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const child = execFile(cliPath, ["prepare"], { signal: controller.signal, timeout: timeoutMs, maxBuffer: 1024 * 1024 }, (error, stdout) => {
+      clearTimeout(timer);
+      if (error) {
+        reject(error);
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout));
+      } catch (parseError) {
+        reject(parseError);
+      }
+    });
+    child.stdin.end(JSON.stringify(request));
+  });
+}
+
+function firstShellWord(command) {
+  let i = 0;
+  while (i < command.length && /\s/.test(command[i])) i++;
+  let word = "";
+  let quote = null;
+  for (; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      } else if (quote === '"' && ch === "\\" && i + 1 < command.length) {
+        word += command[++i];
+      } else {
+        word += ch;
+      }
+      continue;
+    }
+    if (ch === "\\" && i + 1 < command.length) {
+      word += command[++i];
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (/\s/.test(ch) || ch === ";" || ch === "|" || ch === "&" || ch === "<" || ch === ">") break;
+    word += ch;
+  }
+  return word;
+}
+
+const factory = createReadonlyBashClassifier();
+module.exports = factory;
+module.exports.createReadonlyBashClassifier = createReadonlyBashClassifier;
+module.exports.buildPrepareRequest = buildPrepareRequest;
+module.exports.dangerousEnv = dangerousEnv;
+module.exports.execPrepareDefault = execPrepareDefault;
+module.exports.firstShellWord = firstShellWord;
+module.exports.mergeSettings = mergeSettings;
+module.exports.projectSettingsPath = projectSettingsPath;

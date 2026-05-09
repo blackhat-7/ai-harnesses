@@ -7,6 +7,14 @@ This directory owns shared config for Claude Code, opencode, and Pi.
 - MCP servers live in `ai-harnesses/default.nix` as `mcpServers`.
 - Shared skills live in `.claude/skills`; private skills stay in the `.claude/private-skills` submodule and are exposed through symlinks in `.claude/skills`.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
+- `readonly-bash` core source lives outside dotfiles at `~/Documents/projects/readonly-bash`; dotfiles fetch latest `main` from GitHub with impure `builtins.fetchGit`, so rebuild commands must pass `--impure --refresh`.
+
+## readonly-bash Pi auto-approval
+
+- Home Manager builds the generic Go core with Nix and writes the runtime config to `~/.pi/agent/readonly-bash.json`.
+- Pi loads only `dotfiles/ai-harnesses/readonly-bash-classifier.js` through `settings.json`; activation removes any stale auto-discovered copy under `~/.pi/agent/extensions`.
+- `pi-permissions.jsonc` allows exactly the Nix-store `readonly-bash-runner` command. Unknown bash stays on ask.
+- The wrapper only handles model `bash` tool calls. Pi's global `shellPath` and empty `shellCommandPrefix` settings still affect user `!` / `!!` shell execution.
 
 ## Generated files
 
@@ -19,6 +27,7 @@ Home Manager writes:
 - `~/.config/opencode/agent/reviewer.md`
 - `~/.pi/agent/settings.json`
 - `~/.pi/agent/pi-permissions.jsonc`
+- `~/.pi/agent/readonly-bash.json`
 - `~/.pi/agent/extensions/pi-permission-system/config.json`
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/web-search.json`

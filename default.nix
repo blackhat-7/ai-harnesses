@@ -9,6 +9,44 @@ let
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   work = "${home}/Documents/Work/Editing/aftershoot-cloud";
   envCmd = "${home}/.npm-global/bin/env-cmd";
+  readonlyBashSrc = builtins.fetchGit {
+    url = "https://github.com/blackhat-7/readonly-bash.git";
+    ref = "main";
+  };
+  readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
+    defaultConfigPath = "${home}/.pi/agent/readonly-bash.json";
+  };
+  discardContext = builtins.unsafeDiscardStringContext;
+  readonlyBashCli = "${readonlyBashPkg}/bin/readonly-bash";
+  readonlyBashRunnerCommand = "${readonlyBashPkg}/bin/readonly-bash-runner";
+  readonlyBashCliString = discardContext readonlyBashCli;
+  readonlyBashRunnerCommandString = discardContext readonlyBashRunnerCommand;
+  piReadonlyBashTrustedShell = "${pkgs.bash}/bin/bash";
+  piReadonlyBashTrustedShellString = discardContext piReadonlyBashTrustedShell;
+  piReadonlyBashTrustedPathPackages = [
+    pkgs.coreutils
+    pkgs.findutils
+    pkgs.gnugrep
+    pkgs.ripgrep
+    pkgs.git
+    pkgs.file
+    pkgs.gnused
+    pkgs.gawk
+    pkgs.nodejs
+    pkgs.python3
+  ];
+  piReadonlyBashTrustedPath = lib.makeBinPath piReadonlyBashTrustedPathPackages;
+  piReadonlyBashTrustedPathString = discardContext piReadonlyBashTrustedPath;
+  readonlyBashConfig = builtins.toJSON {
+    cliPath = readonlyBashCliString;
+    runnerPath = readonlyBashRunnerCommandString;
+    approvalDir = "${home}/.pi/agent/readonly-bash-approvals";
+    trustedShell = piReadonlyBashTrustedShellString;
+    trustedPath = piReadonlyBashTrustedPathString;
+    globalSettingsPath = "${home}/.pi/agent/settings.json";
+    projectSettingsLookup = "cwd";
+    generatedPermissionsPath = "${home}/.pi/agent/pi-permissions.jsonc";
+  };
 
   envMcp = env: bin: {
     command = envCmd;
@@ -353,6 +391,9 @@ let
 
   piSettings = builtins.toJSON {
     skills = [ "${home}/.claude/skills" ];
+    extensions = [ "${home}/dotfiles/ai-harnesses/readonly-bash-classifier.js" ];
+    shellPath = piReadonlyBashTrustedShellString;
+    shellCommandPrefix = "";
     defaultProvider = "openai-codex";
     enabledModels = [
       "openai-codex/*"
@@ -369,6 +410,9 @@ let
       mcp = "allow";
       skills = "allow";
       special = "ask";
+    };
+    bash = {
+      "${readonlyBashRunnerCommandString}" = "allow";
     };
     tools = {
       read = "allow";
@@ -426,6 +470,65 @@ let
     };
   };
 
+  installPiActivation = ''
+    export PATH="${pkgs.nodejs_24}/bin:$PATH"
+    export npm_config_prefix="${home}/.npm-global"
+    npm_bin="$npm_config_prefix/bin"
+    mkdir -p "$npm_bin"
+    packages="
+      npm:pi-mcp-adapter
+      npm:pi-permission-system
+      npm:pi-web-access
+      npm:pi-subagents
+      npm:pi-mermaid
+      npm:@juicesharp/rpiv-todo
+      npm:@ifi/oh-pi-themes
+      npm:pi-rewind
+      npm:pi-intercom
+    "
+
+    npm i -g @mariozechner/pi-coding-agent env-cmd beautiful-mermaid || true
+
+    settings="${home}/.pi/agent/settings.json"
+    if [ -f "$settings" ]; then
+      desired_json=$(printf '%s\n' $packages | ${pkgs.jq}/bin/jq -R . | ${pkgs.jq}/bin/jq -s .)
+      ${pkgs.jq}/bin/jq --argjson packages "$desired_json" '.packages = $packages' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
+    fi
+
+    for package in $packages; do
+      "$npm_bin/pi" install "$package" || true
+    done
+
+    subagents_root="${home}/.npm-global/lib/node_modules/pi-subagents"
+    if [ -d "$subagents_root" ]; then
+      ${pkgs.python3}/bin/python3 - "$subagents_root" <<'PY'
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+
+def patch(path, old, new):
+    text = path.read_text()
+    if new in text:
+        return
+    if old not in text:
+        raise SystemExit(f"Could not apply pi-subagents safety patch to {path}")
+    path.write_text(text.replace(old, new))
+
+patch(
+    root / "src/runs/shared/pi-args.ts",
+    '\tconst env: Record<string, string | undefined> = {};\n\tenv[SUBAGENT_CHILD_ENV] = "1";',
+    '\tconst env: Record<string, string | undefined> = {};\n\tenv[SUBAGENT_CHILD_ENV] = "1";\n\tenv.PI_IS_SUBAGENT = "1";',
+)
+patch(
+    root / "src/extension/index.ts",
+    '\tconst resetSessionState = (ctx: ExtensionContext) => {\n\t\tstate.baseCwd = ctx.cwd;\n\t\tstate.currentSessionId = resolveCurrentSessionId(ctx.sessionManager);\n\t\tstate.lastUiContext = ctx;',
+    '\tconst resetSessionState = (ctx: ExtensionContext) => {\n\t\tstate.baseCwd = ctx.cwd;\n\t\tstate.currentSessionId = resolveCurrentSessionId(ctx.sessionManager);\n\t\tprocess.env.PI_AGENT_ROUTER_PARENT_SESSION_ID = ctx.sessionManager.getSessionId() ?? "";\n\t\tstate.lastUiContext = ctx;',
+)
+PY
+    fi
+  '';
+
   opencodeAgentReviewer = ''
     ---
     description: Independent fresh-context reviewer for flow tasks. Use for /audit-style reviews of ~/.flow/<slug>/PLAN.md against git diff; writes ~/.flow/<slug>/REVIEW.md with drift, bugs, bloat, missing items, and verdict.
@@ -470,8 +573,20 @@ let
   '';
 in
 {
-  home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.config/mcp"
+  home.packages = [
+    readonlyBashPkg
+    pkgs.bash
+  ] ++ piReadonlyBashTrustedPathPackages;
+
+  home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
+
+  home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" "install-pi" ] ''
+    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.config/mcp" "$HOME/.pi/agent/readonly-bash-approvals"
+    chmod 700 "$HOME/.pi/agent/readonly-bash-approvals"
+    rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js"
+    rm -f "$HOME/.pi/agent/readonly-bash.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/readonly-bash.json"
+    ${readonlyBashConfig}
+    EOF
     rm -f "$HOME/.claude/statusline-command.sh"; cat <<'EOF' > "$HOME/.claude/statusline-command.sh"
     ${statuslineScript}
     EOF
