@@ -6,6 +6,10 @@ const path = require("node:path");
 
 const { createReadonlyBashClassifier, execPrepareDefault, firstShellWord } = require("./readonly-bash-classifier.js");
 
+async function loadOpenCodePlugin() {
+  return import("./readonly-bash-opencode-plugin.mjs");
+}
+
 test("blocks direct runner when first shell word is runner path", async () => {
   const { pi, emit } = fakePi();
   const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
@@ -153,6 +157,76 @@ test("prepare ask/error responses fail closed without pending lock", async () =>
   assert.equal(third.input.command, "/runner");
 });
 
+test("opencode plugin default export uses opencode v1 object shape", async () => {
+  const mod = await loadOpenCodePlugin();
+  assert.equal(mod.default.id, "readonly-bash");
+  assert.equal(typeof mod.default.server, "function");
+});
+
+test("opencode plugin auto-approves readonly bash permission without rewriting the command", async () => {
+  const mod = await loadOpenCodePlugin();
+  const dir = tdir();
+  const configPath = writeConfig(dir, { trustedPath: "/trusted/bin" });
+  const replies = [];
+  const plugin = await mod.createReadonlyBashOpenCodePlugin({
+    configPath,
+    execClassify: async (_cli, request) => {
+      assert.equal(request.cwd, dir);
+      assert.equal(request.command, "sed -n '1,24p' flake.nix");
+      return { decision: "readonly" };
+    },
+    client: { postSessionIdPermissionsPermissionId: async (request) => replies.push(request) },
+  })({ directory: dir });
+
+  await plugin.event({ event: permissionAsked("perm-1", ["sed -n '1,24p' flake.nix"]) });
+
+  assert.deepEqual(replies, [
+    {
+      path: { id: "s", permissionID: "perm-1" },
+      query: { directory: dir },
+      body: { response: "once" },
+    },
+  ]);
+});
+
+test("opencode plugin leaves unsafe bash permissions for opencode to ask", async () => {
+  const mod = await loadOpenCodePlugin();
+  const dir = tdir();
+  const configPath = writeConfig(dir);
+  const replies = [];
+  const plugin = await mod.createReadonlyBashOpenCodePlugin({
+    configPath,
+    execClassify: async () => ({ decision: "ask", reason: "no" }),
+    client: { permission: { reply: async (request) => replies.push(request) } },
+  })({ directory: dir });
+
+  await plugin.event({ event: permissionAsked("perm-1", ["rm -rf /tmp/nope"]) });
+
+  assert.deepEqual(replies, []);
+});
+
+test("opencode plugin hardens shell environment for raw command execution", async () => {
+  const mod = await loadOpenCodePlugin();
+  const dir = tdir();
+  const configPath = writeConfig(dir, { trustedPath: "/trusted/bin" });
+  const previous = snapshotEnv(["BASH_FUNC_x%%"]);
+  process.env["BASH_FUNC_x%%"] = "() { :; }";
+  try {
+    const plugin = await mod.createReadonlyBashOpenCodePlugin({ configPath })({ directory: dir });
+    const output = { env: { KEEP: "1" } };
+    await plugin["shell.env"]({}, output);
+    assert.equal(output.env.PATH, "/trusted/bin");
+    assert.equal(output.env.BASH_ENV, "");
+    assert.equal(output.env.ENV, "");
+    assert.equal(output.env.SHELLOPTS, "");
+    assert.equal(output.env.BASHOPTS, "");
+    assert.equal(output.env["BASH_FUNC_x%%"], "");
+    assert.equal(output.env.KEEP, "1");
+  } finally {
+    restoreEnv(previous);
+  }
+});
+
 test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () => {
   const dir = tdir();
   const hang = writeNodeScript(dir, "hang", "setTimeout(() => {}, 5000);");
@@ -171,6 +245,9 @@ test("dotfiles config uses settings extension only, impure source, and trusted p
   assert.match(nix, /https:\/\/github\.com\/blackhat-7\/readonly-bash\.git/);
   assert.match(nix, /ref = "main"/);
   assert.match(nix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
+  assert.match(nix, /shell = piReadonlyBashTrustedShellString/);
+  assert.match(nix, /bash = \{\s+"\*" = "ask";\s+\};/);
+  assert.match(nix, /cp "\$HOME\/dotfiles\/ai-harnesses\/readonly-bash-opencode-plugin\.mjs" "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js"/);
   assert.match(nix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
   for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "nodejs", "python3"]) {
     assert.match(nix, new RegExp(`pkgs\\.${pkg}`));
@@ -199,6 +276,10 @@ function fakePi() {
 
 function bashEvent(toolCallId, command) {
   return { toolName: "bash", toolCallId, input: { command } };
+}
+
+function permissionAsked(id, patterns) {
+  return { type: "permission.asked", properties: { id, sessionID: "s", permission: "bash", patterns, metadata: {} } };
 }
 
 function writeConfig(dir, overrides = {}) {

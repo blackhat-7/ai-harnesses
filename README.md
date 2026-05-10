@@ -9,12 +9,14 @@ This directory owns shared config for Claude Code, opencode, and Pi.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
 - `readonly-bash` core source lives outside dotfiles at `~/Documents/projects/readonly-bash`; dotfiles fetch latest `main` from GitHub with impure `builtins.fetchGit`, so rebuild commands must pass `--impure --refresh`.
 
-## readonly-bash Pi auto-approval
+## readonly-bash auto-approval
 
 - Home Manager builds the generic Go core with Nix and writes the runtime config to `~/.pi/agent/readonly-bash.json`.
 - Pi loads only `dotfiles/ai-harnesses/readonly-bash-classifier.js` through `settings.json`; activation removes any stale auto-discovered copy under `~/.pi/agent/extensions`.
-- `pi-permissions.jsonc` allows exactly the Nix-store `readonly-bash-runner` command. Unknown bash stays on ask.
-- The wrapper only handles model `bash` tool calls. Pi's global `shellPath` and empty `shellCommandPrefix` settings still affect user `!` / `!!` shell execution.
+- opencode loads a generated local plugin at `~/.config/opencode/plugins/readonly-bash.js`, copied from `dotfiles/ai-harnesses/readonly-bash-opencode-plugin.mjs`.
+- Pi allows exactly the Nix-store `readonly-bash-runner` command. Unknown Pi bash stays on ask.
+- opencode keeps bash commands unchanged in the transcript; its plugin auto-replies once to `permission.asked` only when `readonly-bash classify` marks every requested bash pattern read-only. Unknown opencode bash stays on ask.
+- The wrappers only handle model `bash` tool calls. Pi's global `shellPath` and empty `shellCommandPrefix` settings still affect user `!` / `!!` shell execution.
 
 ## Generated files
 
@@ -24,6 +26,7 @@ Home Manager writes:
 - `~/.claude.json`
 - `~/.config/opencode/opencode.json`
 - `~/.config/opencode/package.json`
+- `~/.config/opencode/plugins/readonly-bash.js`
 - `~/.config/opencode/agent/reviewer.md`
 - `~/.pi/agent/settings.json`
 - `~/.pi/agent/pi-permissions.jsonc`

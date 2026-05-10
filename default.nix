@@ -154,8 +154,12 @@ let
   mcpNames = builtins.attrNames mcpServers;
   opencodeConfig = {
     "$schema" = "https://opencode.ai/config.json";
+    shell = piReadonlyBashTrustedShellString;
     permission = {
       "*" = "ask";
+      bash = {
+        "*" = "ask";
+      };
       external_directory = "allow";
       websearch = "allow";
       glob = "allow";
@@ -581,7 +585,7 @@ in
   home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
 
   home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" "install-pi" ] ''
-    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.config/mcp" "$HOME/.pi/agent/readonly-bash-approvals"
+    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.config/opencode/plugins" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.config/mcp" "$HOME/.pi/agent/readonly-bash-approvals"
     chmod 700 "$HOME/.pi/agent/readonly-bash-approvals"
     rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js"
     rm -f "$HOME/.pi/agent/readonly-bash.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/readonly-bash.json"
@@ -607,6 +611,7 @@ in
     rm -f "$HOME/.config/opencode/package.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.config/opencode/package.json"
     ${opencodePackageJson}
     EOF
+    rm -f "$HOME/.config/opencode/plugins/readonly-bash.js"; cp "$HOME/dotfiles/ai-harnesses/readonly-bash-opencode-plugin.mjs" "$HOME/.config/opencode/plugins/readonly-bash.js"
     rm -f "$HOME/.config/opencode/agent/reviewer.md"; cat <<'EOF' > "$HOME/.config/opencode/agent/reviewer.md"
     ${opencodeAgentReviewer}
     EOF
