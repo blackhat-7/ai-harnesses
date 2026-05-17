@@ -326,7 +326,7 @@ let
       '';
 
   piChutesProviderExtension = ''
-    import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+    import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
     type ChutesModel = {
       id: string;
@@ -491,7 +491,7 @@ let
       npm:pi-intercom
     "
 
-    npm i -g @mariozechner/pi-coding-agent env-cmd beautiful-mermaid || true
+    npm i -g --no-audit --no-fund @earendil-works/pi-coding-agent env-cmd beautiful-mermaid || true
 
     settings="${home}/.pi/agent/settings.json"
     if [ -f "$settings" ]; then
