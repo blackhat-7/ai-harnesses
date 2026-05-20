@@ -446,6 +446,11 @@ let
     permissionReviewLog = true;
     yoloMode = false;
   };
+  piSubagentsConfig = builtins.toJSON {
+    intercomBridge = {
+      mode = "off";
+    };
+  };
   piKeybindings = builtins.toJSON {
     "tui.input.newLine" = [
       "shift+enter"
@@ -503,8 +508,9 @@ let
       "$npm_bin/pi" install "$package" || true
     done
 
-    subagents_root="${home}/.npm-global/lib/node_modules/pi-subagents"
-    if [ -d "$subagents_root" ]; then
+    subagents_roots="${home}/.npm-global/lib/node_modules/pi-subagents ${home}/.pi/agent/npm/node_modules/pi-subagents"
+    for subagents_root in $subagents_roots; do
+      [ -d "$subagents_root" ] || continue
       ${pkgs.python3}/bin/python3 - "$subagents_root" <<'PY'
 import pathlib
 import sys
@@ -529,8 +535,146 @@ patch(
     '\tconst resetSessionState = (ctx: ExtensionContext) => {\n\t\tstate.baseCwd = ctx.cwd;\n\t\tstate.currentSessionId = resolveCurrentSessionId(ctx.sessionManager);\n\t\tstate.lastUiContext = ctx;',
     '\tconst resetSessionState = (ctx: ExtensionContext) => {\n\t\tstate.baseCwd = ctx.cwd;\n\t\tstate.currentSessionId = resolveCurrentSessionId(ctx.sessionManager);\n\t\tprocess.env.PI_AGENT_ROUTER_PARENT_SESSION_ID = ctx.sessionManager.getSessionId() ?? "";\n\t\tstate.lastUiContext = ctx;',
 )
+
+# Output paths are owned by the parent runner. Children should return final
+# content; asking them to write the file triggers permission prompts in headless
+# child processes and can deadlock review workflows.
+patch(
+    root / "src/runs/shared/single-output.ts",
+    """export function injectSingleOutputInstruction(task: string, outputPath: string | undefined): string {
+	if (!outputPath) return task;
+	return `''${task}\\n\\n---\\n**Output:** Write your findings to: ''${outputPath}`;
+}""",
+    """export function injectSingleOutputInstruction(task: string, outputPath: string | undefined): string {
+	if (!outputPath) return task;
+	return `''${task}\\n\\n---\\n**Output:** Return your findings in your final response. Do not call write/edit for this output file; the parent subagent runner will save your final response to: ''${outputPath}`;
+}""",
+)
+patch(
+    root / "src/shared/settings.ts",
+    """	// OUTPUT - prepend so agent knows where to write
+	if (behavior.output) {
+		const outputPath = resolveChainPath(behavior.output, chainDir);
+		prefixParts.push(`[Write to: ''${outputPath}]`);
+	}""",
+    """	// OUTPUT - parent runner saves final response to this path
+	if (behavior.output) {
+		const outputPath = resolveChainPath(behavior.output, chainDir);
+		prefixParts.push(`[Output will be saved by parent runner to: ''${outputPath}]`);
+	}""",
+)
+
+# pi can emit an assistant message with errorMessage for a transient provider
+# transport failure and then recover with a later clean terminal answer. Do not
+# let pi-subagents treat the earlier transient message as a failed subagent run.
+patch(
+    root / "src/shared/utils.ts",
+    """/**
+ * Detect errors in subagent execution from messages (only errors with no subsequent success)
+ */
+export function detectSubagentError(messages: Message[]): ErrorInfo {""",
+    """/**
+ * Returns true when the latest assistant turn completed cleanly.
+ *
+ * Provider transport errors can be emitted as assistant messages before pi
+ * retries/resumes and produces a later final answer. Subagent runners should
+ * not keep an older assistant error latched after this clean terminal turn.
+ */
+export function hasCleanTerminalAssistantStop(messages: Message[]): boolean {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const msg = messages[i];
+		if (msg.role !== "assistant") continue;
+		const terminal = (msg as { stopReason?: string }).stopReason === "stop";
+		const errored = Boolean((msg as { errorMessage?: string }).errorMessage);
+		const hasText = Array.isArray(msg.content) && msg.content.some(
+			(part) => part.type === "text" && "text" in part && typeof part.text === "string" && part.text.trim().length > 0,
+		);
+		return terminal && !errored && hasText;
+	}
+	return false;
+}
+
+/**
+ * Detect errors in subagent execution from messages (only errors with no subsequent success)
+ */
+export function detectSubagentError(messages: Message[]): ErrorInfo {""",
+)
+patch(
+    root / "src/runs/foreground/execution.ts",
+    """	getFinalOutput,
+	findLatestSessionFile,
+	detectSubagentError,
+	extractToolArgsPreview,""",
+    """	getFinalOutput,
+	findLatestSessionFile,
+	detectSubagentError,
+	hasCleanTerminalAssistantStop,
+	extractToolArgsPreview,""",
+)
+patch(
+    root / "src/runs/foreground/execution.ts",
+    """	if (result.error && result.exitCode === 0) {
+		result.exitCode = 1;
+	}
+	if (result.exitCode === 0 && !result.error) {""",
+    """	if (result.error && result.exitCode === 0 && hasCleanTerminalAssistantStop(result.messages)) {
+		result.error = undefined;
+	}
+	if (result.error && result.exitCode === 0) {
+		result.exitCode = 1;
+	}
+	if (result.exitCode === 0 && !result.error) {""",
+)
+patch(
+    root / "src/runs/background/subagent-runner.ts",
+    """import { detectSubagentError, extractTextFromContent, extractToolArgsPreview, getFinalOutput } from "../../shared/utils.ts";""",
+    """import { detectSubagentError, extractTextFromContent, extractToolArgsPreview, getFinalOutput, hasCleanTerminalAssistantStop } from "../../shared/utils.ts";""",
+)
+patch(
+    root / "src/runs/background/subagent-runner.ts",
+    """		const hiddenError = run.exitCode === 0 && !run.error ? detectSubagentError(run.messages) : null;
+		const completionGuard = run.exitCode === 0 && !run.error && !hiddenError?.hasError
+			? evaluateCompletionMutationGuard({
+				agent: step.agent,
+				task,
+				messages: run.messages,
+			})
+			: undefined;""",
+    """		if (run.error && run.exitCode === 0 && hasCleanTerminalAssistantStop(run.messages)) {
+			run.error = undefined;
+		}
+		const hiddenError = run.exitCode === 0 && !run.error ? detectSubagentError(run.messages) : null;
+		const completionGuard = run.exitCode === 0 && !run.error && !hiddenError?.hasError
+			? evaluateCompletionMutationGuard({
+				agent: step.agent,
+				task,
+				messages: run.messages,
+			})
+			: undefined;""",
+)
 PY
-    fi
+      rm -rf "$subagents_root/node_modules/.cache/jiti"
+    done
+
+    permission_system_roots="${home}/.npm-global/lib/node_modules/pi-permission-system ${home}/.pi/agent/npm/node_modules/pi-permission-system"
+    for permission_system_root in $permission_system_roots; do
+      [ -d "$permission_system_root" ] || continue
+      ${pkgs.python3}/bin/python3 - "$permission_system_root" <<'PY'
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+path = root / "src/permission-forwarding.ts"
+text = path.read_text()
+old = 'export const SUBAGENT_ENV_HINT_KEYS = ["PI_IS_SUBAGENT", "PI_SUBAGENT_SESSION_ID", "PI_AGENT_ROUTER_SUBAGENT"] as const;'
+new = 'export const SUBAGENT_ENV_HINT_KEYS = ["PI_IS_SUBAGENT", "PI_SUBAGENT_CHILD", "PI_SUBAGENT_SESSION_ID", "PI_AGENT_ROUTER_SUBAGENT"] as const;'
+if new not in text:
+    if old not in text:
+        raise SystemExit(f"Could not apply pi-permission-system subagent env patch to {path}")
+    path.write_text(text.replace(old, new))
+PY
+      rm -rf "$permission_system_root/node_modules/.cache/jiti"
+    done
   '';
 
   opencodeAgentReviewer = ''
@@ -585,7 +729,7 @@ in
   home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
 
   home.activation.writeAiHarnessConfigs = lib.hm.dag.entryAfter [ "writeBoundary" "install-pi" ] ''
-    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.config/opencode/plugins" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.config/mcp" "$HOME/.pi/agent/readonly-bash-approvals"
+    mkdir -p "$HOME/.config/opencode" "$HOME/.config/opencode/agent" "$HOME/.config/opencode/plugins" "$HOME/.claude" "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.pi/agent/extensions/subagent" "$HOME/.config/mcp" "$HOME/.pi/agent/readonly-bash-approvals"
     chmod 700 "$HOME/.pi/agent/readonly-bash-approvals"
     rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js"
     rm -f "$HOME/.pi/agent/readonly-bash.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/readonly-bash.json"
@@ -629,6 +773,9 @@ in
     EOF
     rm -f "$HOME/.pi/agent/extensions/pi-permission-system/config.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/extensions/pi-permission-system/config.json"
     ${piPermissionSystemConfig}
+    EOF
+    rm -f "$HOME/.pi/agent/extensions/subagent/config.json"; ${pkgs.jq}/bin/jq . <<'EOF' > "$HOME/.pi/agent/extensions/subagent/config.json"
+    ${piSubagentsConfig}
     EOF
     rm -f "$HOME/.pi/agent/extensions/chutes-provider.ts"; cat <<'EOF' > "$HOME/.pi/agent/extensions/chutes-provider.ts"
     ${piChutesProviderExtension}
