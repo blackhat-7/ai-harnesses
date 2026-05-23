@@ -633,22 +633,26 @@ patch(
 patch(
     root / "src/runs/background/subagent-runner.ts",
     """		const hiddenError = run.exitCode === 0 && !run.error ? detectSubagentError(run.messages) : null;
-		const completionGuard = run.exitCode === 0 && !run.error && !hiddenError?.hasError
+		const completionGuard = run.exitCode === 0 && !run.error && !hiddenError?.hasError && step.completionGuard !== false
 			? evaluateCompletionMutationGuard({
 				agent: step.agent,
 				task,
 				messages: run.messages,
+				tools: step.tools,
+				mcpDirectTools: step.mcpDirectTools,
 			})
 			: undefined;""",
     """		if (run.error && run.exitCode === 0 && hasCleanTerminalAssistantStop(run.messages)) {
 			run.error = undefined;
 		}
 		const hiddenError = run.exitCode === 0 && !run.error ? detectSubagentError(run.messages) : null;
-		const completionGuard = run.exitCode === 0 && !run.error && !hiddenError?.hasError
+		const completionGuard = run.exitCode === 0 && !run.error && !hiddenError?.hasError && step.completionGuard !== false
 			? evaluateCompletionMutationGuard({
 				agent: step.agent,
 				task,
 				messages: run.messages,
+				tools: step.tools,
+				mcpDirectTools: step.mcpDirectTools,
 			})
 			: undefined;""",
 )
