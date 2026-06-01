@@ -154,7 +154,6 @@ let
   mcpNames = builtins.attrNames mcpServers;
   opencodeConfig = {
     "$schema" = "https://opencode.ai/config.json";
-    shell = piReadonlyBashTrustedShellString;
     permission = {
       "*" = "ask";
       bash = {

@@ -245,7 +245,7 @@ test("dotfiles config uses settings extension only, impure source, and trusted p
   assert.match(nix, /https:\/\/github\.com\/blackhat-7\/readonly-bash\.git/);
   assert.match(nix, /ref = "main"/);
   assert.match(nix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
-  assert.match(nix, /shell = piReadonlyBashTrustedShellString/);
+  assert.doesNotMatch(nix, /opencodeConfig = \{[\s\S]*?shell = /);
   assert.match(nix, /bash = \{\s+"\*" = "ask";\s+\};/);
   assert.match(nix, /cp "\$HOME\/dotfiles\/ai-harnesses\/readonly-bash-opencode-plugin\.mjs" "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js"/);
   assert.match(nix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
