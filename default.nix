@@ -385,7 +385,7 @@ let
       pi.registerProvider("chutes", {
         name: "Chutes",
         baseUrl: CHUTES_BASE_URL,
-        apiKey: "CHUTES_API_KEY",
+        apiKey: "$CHUTES_API_KEY",
         api: "openai-completions",
         models,
       });
@@ -491,6 +491,7 @@ let
       npm:pi-mermaid
       npm:@juicesharp/rpiv-todo
       npm:@ifi/oh-pi-themes
+      npm:pi-opencode-theme
       npm:pi-rewind
       npm:pi-intercom
     "
