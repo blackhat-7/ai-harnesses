@@ -7,7 +7,6 @@ const DEFAULT_CONFIG_PATH = path.join(os.homedir(), ".pi/agent/readonly-bash.jso
 const DEFAULT_TIMEOUT_MS = 1000;
 
 function createReadonlyBashClassifier(options = {}) {
-  const state = { pendingToolCallId: null };
   const configPath = options.configPath || DEFAULT_CONFIG_PATH;
   const execPrepare = options.execPrepare || execPrepareDefault;
 
@@ -24,10 +23,9 @@ function createReadonlyBashClassifier(options = {}) {
         return undefined;
       }
 
-      if (firstShellWord(command) === config.runnerPath) {
+      if (firstRunnableShellWord(command) === config.runnerPath) {
         return { block: true, reason: "Direct readonly-bash runner invocation is not allowed" };
       }
-      if (state.pendingToolCallId) return undefined;
 
       const request = buildPrepareRequest(config, event, ctx, command);
       let response;
@@ -40,18 +38,9 @@ function createReadonlyBashClassifier(options = {}) {
       if (!response || response.action !== "rewrite" || typeof response.command !== "string") {
         return undefined;
       }
-      state.pendingToolCallId = event.toolCallId;
-      event.input.command = response.command;
+      event.input.command = `READONLY_BASH_REQUEST_ID=${shellQuote(String(event.toolCallId))} ${response.command}`;
       return undefined;
     });
-
-    const clearPending = (event) => {
-      if (state.pendingToolCallId && event.toolCallId === state.pendingToolCallId) {
-        state.pendingToolCallId = null;
-      }
-    };
-    pi.on("tool_result", clearPending);
-    pi.on("tool_execution_end", clearPending);
   };
 }
 
@@ -130,7 +119,21 @@ function execPrepareDefault(cliPath, request, timeoutMs) {
 }
 
 function firstShellWord(command) {
-  let i = 0;
+  return readShellWord(command, 0).word;
+}
+
+function firstRunnableShellWord(command) {
+  let offset = 0;
+  for (;;) {
+    const parsed = readShellWord(command, offset);
+    if (!parsed.word) return "";
+    if (!isShellEnvAssignment(parsed.word)) return parsed.word;
+    offset = parsed.end;
+  }
+}
+
+function readShellWord(command, offset) {
+  let i = offset;
   while (i < command.length && /\s/.test(command[i])) i++;
   let word = "";
   let quote = null;
@@ -157,7 +160,17 @@ function firstShellWord(command) {
     if (/\s/.test(ch) || ch === ";" || ch === "|" || ch === "&" || ch === "<" || ch === ">") break;
     word += ch;
   }
-  return word;
+  return { word, end: i };
+}
+
+function isShellEnvAssignment(word) {
+  const eq = word.indexOf("=");
+  if (eq <= 0) return false;
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(word.slice(0, eq));
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
 const factory = createReadonlyBashClassifier();

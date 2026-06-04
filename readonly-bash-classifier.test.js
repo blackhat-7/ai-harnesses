@@ -10,7 +10,7 @@ async function loadOpenCodePlugin() {
   return import("./readonly-bash-opencode-plugin.mjs");
 }
 
-test("blocks direct runner when first shell word is runner path", async () => {
+test("blocks direct runner when first runnable shell word is runner path", async () => {
   const { pi, emit } = fakePi();
   const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
   createReadonlyBashClassifier({ configPath, execPrepare: async () => ({ action: "rewrite", command: "/runner" }) })(pi);
@@ -21,9 +21,11 @@ test("blocks direct runner when first shell word is runner path", async () => {
   assert.equal(suffix.block, true);
   const escaped = await emit("tool_call", bashEvent("3", "\\/runner --config /tmp/x"));
   assert.equal(escaped.block, true);
+  const envPrefixed = await emit("tool_call", bashEvent("4", "READONLY_BASH_REQUEST_ID='x' /runner"));
+  assert.equal(envPrefixed.block, true);
 });
 
-test("pending lock keeps later safe calls on ask path until lifecycle clears", async () => {
+test("safe calls prepare independently and receive request-id-bound runner commands", async () => {
   const { pi, emit } = fakePi();
   const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
   let calls = 0;
@@ -37,17 +39,11 @@ test("pending lock keeps later safe calls on ask path until lifecycle clears", a
 
   const first = bashEvent("1", "pwd");
   await emit("tool_call", first, { cwd: "/tmp" });
-  assert.equal(first.input.command, "/runner");
+  assert.equal(first.input.command, "READONLY_BASH_REQUEST_ID='1' /runner");
 
   const second = bashEvent("2", "pwd");
   await emit("tool_call", second, { cwd: "/tmp" });
-  assert.equal(second.input.command, "pwd");
-  assert.equal(calls, 1);
-
-  await emit("tool_execution_end", { toolCallId: "1" });
-  const third = bashEvent("3", "pwd");
-  await emit("tool_call", third, { cwd: "/tmp" });
-  assert.equal(third.input.command, "/runner");
+  assert.equal(second.input.command, "READONLY_BASH_REQUEST_ID='2' /runner");
   assert.equal(calls, 2);
 });
 
@@ -91,7 +87,7 @@ test("maps global and project settings plus dangerous env into guard constraints
   assert.equal(captured.guard.dangerousEnv.BASHOPTS, "globstar");
 });
 
-test("mixed safe plus delayed ask keeps later safe command on ask path", async () => {
+test("mixed safe plus delayed ask still prepares later safe commands", async () => {
   const { pi, emit } = fakePi();
   const configPath = writeConfig(tdir(), { runnerPath: "/runner" });
   let resolveAsk;
@@ -109,22 +105,21 @@ test("mixed safe plus delayed ask keeps later safe command on ask path", async (
 
   const safe1 = bashEvent("safe-1", "pwd");
   await emit("tool_call", safe1, { cwd: "/tmp" });
-  assert.equal(safe1.input.command, "/runner");
+  assert.equal(safe1.input.command, "READONLY_BASH_REQUEST_ID='safe-1' /runner");
 
   const ask1 = bashEvent("ask-1", "pwd");
   const askPromise = emit("tool_call", ask1, { cwd: "/tmp" });
   const safe2 = bashEvent("safe-2", "pwd");
   await emit("tool_call", safe2, { cwd: "/tmp" });
-  assert.equal(safe2.input.command, "pwd");
+  assert.equal(safe2.input.command, "READONLY_BASH_REQUEST_ID='safe-2' /runner");
 
   resolveAsk({ action: "ask", reason: "delayed" });
   await askPromise;
   assert.equal(ask1.input.command, "pwd");
 
-  await emit("tool_result", { toolCallId: "safe-1" });
   const safe3 = bashEvent("safe-3", "pwd");
   await emit("tool_call", safe3, { cwd: "/tmp" });
-  assert.equal(safe3.input.command, "/runner");
+  assert.equal(safe3.input.command, "READONLY_BASH_REQUEST_ID='safe-3' /runner");
 });
 
 test("prepare ask/error responses fail closed without pending lock", async () => {
@@ -154,7 +149,7 @@ test("prepare ask/error responses fail closed without pending lock", async () =>
 
   const third = bashEvent("3", "pwd");
   await emit("tool_call", third);
-  assert.equal(third.input.command, "/runner");
+  assert.equal(third.input.command, "READONLY_BASH_REQUEST_ID='3' /runner");
 });
 
 test("opencode plugin default export uses opencode v1 object shape", async () => {
@@ -246,6 +241,7 @@ test("dotfiles config uses settings extension only, impure source, and trusted p
   assert.match(nix, /ref = "main"/);
   assert.match(nix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
   assert.doesNotMatch(nix, /opencodeConfig = \{[\s\S]*?shell = /);
+  assert.match(nix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
   assert.match(nix, /bash = \{\s+"\*" = "ask";\s+\};/);
   assert.match(nix, /cp "\$HOME\/dotfiles\/ai-harnesses\/readonly-bash-opencode-plugin\.mjs" "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js"/);
   assert.match(nix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);

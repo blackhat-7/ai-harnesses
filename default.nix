@@ -416,6 +416,7 @@ let
     };
     bash = {
       "${readonlyBashRunnerCommandString}" = "allow";
+      "READONLY_BASH_REQUEST_ID=* ${readonlyBashRunnerCommandString}" = "allow";
     };
     tools = {
       read = "allow";
