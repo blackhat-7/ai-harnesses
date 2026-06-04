@@ -628,8 +628,8 @@ patch(
 )
 patch(
     root / "src/runs/background/subagent-runner.ts",
-    """import { detectSubagentError, extractTextFromContent, extractToolArgsPreview, getFinalOutput } from "../../shared/utils.ts";""",
-    """import { detectSubagentError, extractTextFromContent, extractToolArgsPreview, getFinalOutput, hasCleanTerminalAssistantStop } from "../../shared/utils.ts";""",
+    """getFinalOutput } from "../../shared/utils.ts";""",
+    """getFinalOutput, hasCleanTerminalAssistantStop } from "../../shared/utils.ts";""",
 )
 patch(
     root / "src/runs/background/subagent-runner.ts",
