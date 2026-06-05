@@ -393,6 +393,11 @@ let
   '';
 
   piSettings = builtins.toJSON {
+    npmCommand = [
+      "npm"
+      "--no-audit"
+      "--no-fund"
+    ];
     skills = [ "${home}/.claude/skills" ];
     extensions = [ "${home}/dotfiles/ai-harnesses/readonly-bash-classifier.js" ];
     shellPath = piReadonlyBashTrustedShellString;
@@ -500,14 +505,15 @@ let
     npm i -g --no-audit --no-fund @earendil-works/pi-coding-agent env-cmd beautiful-mermaid || true
 
     settings="${home}/.pi/agent/settings.json"
+    mkdir -p "$(dirname "$settings")"
+    desired_json=$(printf '%s\n' $packages | ${pkgs.jq}/bin/jq -R . | ${pkgs.jq}/bin/jq -s .)
     if [ -f "$settings" ]; then
-      desired_json=$(printf '%s\n' $packages | ${pkgs.jq}/bin/jq -R . | ${pkgs.jq}/bin/jq -s .)
-      ${pkgs.jq}/bin/jq --argjson packages "$desired_json" '.packages = $packages' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
+      ${pkgs.jq}/bin/jq --argjson packages "$desired_json" --argjson npmCommand '["npm","--no-audit","--no-fund"]' '.packages = $packages | .npmCommand = $npmCommand' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
+    else
+      ${pkgs.jq}/bin/jq -n --argjson packages "$desired_json" --argjson npmCommand '["npm","--no-audit","--no-fund"]' '{packages: $packages, npmCommand: $npmCommand}' > "$settings"
     fi
 
-    for package in $packages; do
-      "$npm_bin/pi" install "$package" || true
-    done
+    "$npm_bin/pi" update --extensions || true
 
     subagents_roots="${home}/.npm-global/lib/node_modules/pi-subagents ${home}/.pi/agent/npm/node_modules/pi-subagents"
     for subagents_root in $subagents_roots; do
