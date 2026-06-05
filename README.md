@@ -7,7 +7,7 @@ This directory owns shared config for Claude Code, opencode, and Pi.
 - MCP servers live in `ai-harnesses/default.nix` as `mcpServers`.
 - Shared skills live in `.claude/skills`; private skills stay in the `.claude/private-skills` submodule and are exposed through symlinks in `.claude/skills`.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
-- `readonly-bash` core source lives outside dotfiles at `~/Documents/projects/readonly-bash`; dotfiles fetch latest `main` from GitHub with impure `builtins.fetchGit`, so rebuild commands must pass `--impure --refresh`.
+- `readonly-bash` core source lives outside dotfiles at `~/Documents/projects/readonly-bash`; dotfiles consume it as the locked `readonly-bash` flake input so `just update` refreshes it with nixpkgs.
 
 ## readonly-bash auto-approval
 
@@ -41,7 +41,7 @@ Manual edits to those generated files are not the source of truth.
 
 ## Package patches
 
-- Home Manager patches `pi-subagents` after install so child Pi processes expose the env metadata required by `pi-permission-system` subagent approval forwarding.
+- Home Manager patches `pi-subagents` after install so child Pi processes expose the env metadata required by `pi-permission-system` subagent approval forwarding. Patch failures intentionally fail activation instead of leaving a half-updated Pi install.
 
 ## Dropped
 

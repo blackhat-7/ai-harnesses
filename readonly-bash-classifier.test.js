@@ -234,26 +234,37 @@ test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () =
   await assert.rejects(() => execPrepareDefault(invalid, { command: "pwd" }, 1000));
 });
 
-test("dotfiles config uses settings extension only, impure source, and trusted path families", () => {
-  const nix = fs.readFileSync(path.join(__dirname, "default.nix"), "utf8");
-  assert.match(nix, /builtins\.fetchGit/);
-  assert.match(nix, /https:\/\/github\.com\/blackhat-7\/readonly-bash\.git/);
-  assert.match(nix, /ref = "main"/);
-  assert.match(nix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
-  assert.doesNotMatch(nix, /opencodeConfig = \{[\s\S]*?shell = /);
-  assert.match(nix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
-  assert.match(nix, /bash = \{\s+"\*" = "ask";\s+\};/);
-  assert.match(nix, /cp "\$HOME\/dotfiles\/ai-harnesses\/readonly-bash-opencode-plugin\.mjs" "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js"/);
-  assert.match(nix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
-  for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "nodejs", "python3"]) {
-    assert.match(nix, new RegExp(`pkgs\\.${pkg}`));
-  }
+test("dotfiles config updates readonly-bash through flake input and keeps unknown bash on ask", () => {
+  const piNix = fs.readFileSync(path.join(__dirname, "pi.nix"), "utf8");
+  const opencodeNix = fs.readFileSync(path.join(__dirname, "opencode.nix"), "utf8");
+  const darwinFlake = fs.readFileSync(path.join(__dirname, "..", "nix-darwin", "flake.nix"), "utf8");
+  const linuxFlake = fs.readFileSync(path.join(__dirname, "..", "nix", "flake.nix"), "utf8");
   const darwinJustfile = fs.readFileSync(path.join(__dirname, "..", "nix-darwin", "Justfile"), "utf8");
   const linuxJustfile = fs.readFileSync(path.join(__dirname, "..", "nix", "Justfile"), "utf8");
-  assert.match(darwinJustfile, /--impure/);
-  assert.match(darwinJustfile, /--refresh/);
-  assert.match(linuxJustfile, /--impure/);
-  assert.match(linuxJustfile, /--refresh/);
+
+  assert.match(piNix, /readonlyBashSrc = inputs\.readonly-bash;/);
+  assert.doesNotMatch(piNix, /builtins\.fetchGit|pkgs\.fetchFromGitHub/);
+  assert.doesNotMatch(piNix, /\|\| true/);
+  assert.match(piNix, /npm install --global/);
+  assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
+  assert.match(piNix, /\$\{patchPiPackage "pi-subagents" \.\/files\/pi-subagents-patch\.py\}/);
+  assert.match(piNix, /\$\{patchPiPackage "pi-permission-system" \.\/files\/pi-permission-system-patch\.py\}/);
+  assert.match(piNix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
+  assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
+  assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
+  for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "gnused", "gawk", "nodejs", "python3"]) {
+    assert.match(piNix, new RegExp(`pkgs\\.${pkg}`));
+  }
+
+  for (const flake of [darwinFlake, linuxFlake]) {
+    assert.match(flake, /readonly-bash = \{\s+url = "github:blackhat-7\/readonly-bash\/main";\s+flake = false;\s+\};/);
+  }
+  assert.match(darwinJustfile, /nix flake update nixpkgs readonly-bash/);
+  assert.match(linuxJustfile, /\{\{NIX\}\} flake update nixpkgs readonly-bash/);
+
+  assert.doesNotMatch(opencodeNix, /opencodeConfig = \{[\s\S]*?shell = /);
+  assert.match(opencodeNix, /bash\."\*" = "ask";/);
+  assert.match(opencodeNix, /helpers\.copyFile "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js" \.\/readonly-bash-opencode-plugin\.mjs/);
 });
 
 test("firstShellWord parses quoted and escaped runner paths", () => {

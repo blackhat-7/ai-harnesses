@@ -2,6 +2,7 @@
   pkgs,
   lib,
   config,
+  inputs,
   ...
 }:
 let
@@ -9,10 +10,7 @@ let
   discardContext = builtins.unsafeDiscardStringContext;
   helpers = import ./helpers.nix { inherit pkgs; };
 
-  readonlyBashSrc = builtins.fetchGit {
-    url = "https://github.com/blackhat-7/readonly-bash.git";
-    ref = "main";
-  };
+  readonlyBashSrc = inputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
     defaultConfigPath = "${home}/.pi/agent/readonly-bash.json";
   };
@@ -32,12 +30,19 @@ let
     pkgs.nodejs
     pkgs.python3
   ];
-  piReadonlyBashTrustedPathString = discardContext (lib.makeBinPath piReadonlyBashTrustedPathPackages);
+  piReadonlyBashTrustedPathString = discardContext (
+    lib.makeBinPath piReadonlyBashTrustedPathPackages
+  );
 
-  piNpmCommand = [
-    "npm"
+  npmInstallFlags = [
     "--no-audit"
     "--no-fund"
+  ];
+  piNpmCommand = [ "npm" ] ++ npmInstallFlags;
+  piGlobalNpmPackages = [
+    "@earendil-works/pi-coding-agent"
+    "env-cmd"
+    "beautiful-mermaid"
   ];
   piPackages = [
     "npm:pi-mcp-adapter"
@@ -134,60 +139,58 @@ let
     video.enabled = false;
   };
 
+  patchPiPackage =
+    packageName: patchScript:
+    let
+      packageRoots = [
+        "${home}/.npm-global/lib/node_modules/${packageName}"
+        "${home}/.pi/agent/npm/node_modules/${packageName}"
+      ];
+    in
+    ''
+      for package_root in ${lib.escapeShellArgs packageRoots}; do
+        [ -d "$package_root" ] || continue
+        ${pkgs.python3}/bin/python3 ${patchScript} "$package_root"
+        rm -rf "$package_root/node_modules/.cache/jiti"
+      done
+    '';
+
+  writePiSettings = ''
+    settings="${home}/.pi/agent/settings.json"
+    settings_tmp="$(mktemp)"
+    mkdir -p "$(dirname "$settings")"
+    ${pkgs.jq}/bin/jq . <<'EOF' > "$settings_tmp"
+    ${builtins.toJSON piSettings}
+    EOF
+    if [[ -f "$settings" ]]; then
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1] | del(.permissionLevel, .permissionMode)' "$settings" "$settings_tmp" > "$settings.tmp"
+    else
+      ${pkgs.jq}/bin/jq '. | del(.permissionLevel, .permissionMode)' "$settings_tmp" > "$settings.tmp"
+    fi
+    mv "$settings.tmp" "$settings"
+    rm -f "$settings_tmp"
+  '';
+
   installPiActivation = ''
     export PATH="${pkgs.nodejs_24}/bin:$PATH"
     export npm_config_prefix="${home}/.npm-global"
     npm_bin="$npm_config_prefix/bin"
     mkdir -p "$npm_bin"
 
-    npm i -g --no-audit --no-fund @earendil-works/pi-coding-agent env-cmd beautiful-mermaid || true
+    npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
+    ${writePiSettings}
+    "$npm_bin/pi" update --extensions
 
-    settings="${home}/.pi/agent/settings.json"
-    mkdir -p "$(dirname "$settings")"
-    pi_packages_json='${builtins.toJSON piPackages}'
-    pi_npm_command_json='${builtins.toJSON piNpmCommand}'
-    if [ -f "$settings" ]; then
-      ${pkgs.jq}/bin/jq --argjson packages "$pi_packages_json" --argjson npmCommand "$pi_npm_command_json" '.packages = $packages | .npmCommand = $npmCommand' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
-    else
-      ${pkgs.jq}/bin/jq -n --argjson packages "$pi_packages_json" --argjson npmCommand "$pi_npm_command_json" '{packages: $packages, npmCommand: $npmCommand}' > "$settings"
-    fi
-
-    "$npm_bin/pi" update --extensions || true
-
-    subagents_roots="${home}/.npm-global/lib/node_modules/pi-subagents ${home}/.pi/agent/npm/node_modules/pi-subagents"
-    for subagents_root in $subagents_roots; do
-      [ -d "$subagents_root" ] || continue
-      ${pkgs.python3}/bin/python3 ${./files/pi-subagents-patch.py} "$subagents_root"
-      rm -rf "$subagents_root/node_modules/.cache/jiti"
-    done
-
-    permission_system_roots="${home}/.npm-global/lib/node_modules/pi-permission-system ${home}/.pi/agent/npm/node_modules/pi-permission-system"
-    for permission_system_root in $permission_system_roots; do
-      [ -d "$permission_system_root" ] || continue
-      ${pkgs.python3}/bin/python3 ${./files/pi-permission-system-patch.py} "$permission_system_root"
-      rm -rf "$permission_system_root/node_modules/.cache/jiti"
-    done
-  '';
-
-  writePiSettings = ''
-    pi_settings_tmp="$(mktemp)"
-    ${pkgs.jq}/bin/jq . <<'EOF' > "$pi_settings_tmp"
-    ${builtins.toJSON piSettings}
-    EOF
-    if [[ -f "$HOME/.pi/agent/settings.json" ]]; then
-      ${pkgs.jq}/bin/jq -s '.[0] * .[1] | del(.permissionLevel, .permissionMode)' "$HOME/.pi/agent/settings.json" "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
-    else
-      ${pkgs.jq}/bin/jq '. | del(.permissionLevel, .permissionMode)' "$pi_settings_tmp" > "$HOME/.pi/agent/settings.json.tmp"
-    fi
-    mv "$HOME/.pi/agent/settings.json.tmp" "$HOME/.pi/agent/settings.json"
-    rm -f "$pi_settings_tmp"
+    ${patchPiPackage "pi-subagents" ./files/pi-subagents-patch.py}
+    ${patchPiPackage "pi-permission-system" ./files/pi-permission-system-patch.py}
   '';
 in
 {
   home.packages = [
     readonlyBashPkg
     pkgs.bash
-  ] ++ piReadonlyBashTrustedPathPackages;
+  ]
+  ++ piReadonlyBashTrustedPathPackages;
 
   home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
 
