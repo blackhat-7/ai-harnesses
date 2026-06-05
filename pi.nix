@@ -50,6 +50,7 @@ let
     "npm:pi-opencode-theme"
     "npm:pi-rewind"
     "npm:pi-intercom"
+    "npm:pi-vim"
   ];
 
   readonlyBashConfig = {
