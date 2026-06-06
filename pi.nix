@@ -56,6 +56,7 @@ let
     "npm:pi-rewind"
     "npm:pi-intercom"
     "npm:pi-vim"
+    "npm:pi-ffmpeg"
   ];
 
   readonlyBashConfig = {
