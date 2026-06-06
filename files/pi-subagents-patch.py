@@ -160,6 +160,112 @@ def patch_transient_provider_errors(root):
     )
 
 
+def patch_forced_async_drops_foreground_timeouts(root):
+    # forceTopLevelAsync is a safety override. If the caller accidentally adds a
+    # foreground wall-clock timeout, drop it instead of failing or killing active work.
+    path = root / "src/runs/background/top-level-async.ts"
+    replace_once(
+        path,
+        "interface AsyncOverrideParams {\n\tasync?: boolean;\n\tclarify?: boolean;\n}\n",
+        "interface AsyncOverrideParams {\n\tasync?: boolean;\n\tclarify?: boolean;\n\ttimeoutMs?: number;\n\tmaxRuntimeMs?: number;\n}\n",
+        "forced async timeout fields",
+    )
+    replace_once(
+        path,
+        "\treturn { ...params, async: true, clarify: false };\n",
+        "\tconst { timeoutMs: _timeoutMs, maxRuntimeMs: _maxRuntimeMs, ...rest } = params;\n\treturn { ...rest, async: true, clarify: false } as T;\n",
+        "forced async timeout drop",
+    )
+
+
+def patch_sticky_async_widget(root):
+    # Keep the background-agent widget compact and sticky next to the todo widget.
+    path = root / "src/tui/render.ts"
+    old = '''function buildWidgetComponent(jobs: AsyncJobState[], expanded: boolean): (_tui: unknown, theme: Theme) => Component {
+	return (_tui, theme) => {
+		const width = getTermWidth();
+		const lines = expanded
+			? buildWidgetLines(jobs, theme, width, true)
+			: jobs.length === 1
+				? compactSingleWidgetLines(jobs[0]!, theme, width)
+				: buildWidgetLines(jobs, theme, width, false);
+		const container = new Container();
+		for (const line of fitWidgetLineBudget(lines, theme, width, expanded)) container.addChild(new Text(line, 1, 0));
+		return container;
+	};
+}
+'''
+    new = '''function widgetJobStatusText(job: AsyncJobState, theme: Theme): string {
+	if (job.status === "running") return theme.fg("accent", "running");
+	if (job.status === "queued") return theme.fg("dim", "queued");
+	if (job.status === "complete") return theme.fg("success", "done");
+	if (job.status === "paused") return theme.fg("warning", "paused");
+	return theme.fg("error", "failed");
+}
+
+function buildCompactStickyWidgetLines(jobs: AsyncJobState[], theme: Theme, width: number): string[] {
+	const running = jobs.filter((job) => job.status === "running");
+	const queued = jobs.filter((job) => job.status === "queued");
+	const activeJobs = [...running, ...queued];
+	const visibleJobs = activeJobs.length > 0 ? activeJobs : jobs;
+	const headerColor = activeJobs.length > 0 ? "accent" : "dim";
+	const spinnerSeed = Math.floor(Date.now() / 250);
+	const headerGlyph = running.length > 0 ? runningGlyph(spinnerSeed) : queued.length > 0 ? "●" : "○";
+	const summary = statJoin(theme, [
+		running.length > 0 ? `${running.length} running` : "",
+		queued.length > 0 ? `${queued.length} queued` : "",
+	]);
+	const lines = [truncLine(`${theme.fg(headerColor, headerGlyph)} ${theme.fg(headerColor, "Async agents")}${summary ? ` ${theme.fg("dim", "·")} ${summary}` : ""}`, width)];
+
+	const shown = visibleJobs.slice(0, Math.max(1, MAX_WIDGET_JOBS));
+	const hidden = visibleJobs.length - shown.length;
+	for (const [index, job] of shown.entries()) {
+		const branch = index === shown.length - 1 && hidden === 0 ? "└─" : "├─";
+		const glyph = job.status === "running" ? theme.fg("accent", runningGlyph(spinnerSeed + index)) : widgetStatusGlyph(job, theme);
+		const activity = widgetActivity(job);
+		const details = [
+			widgetJobStatusText(job, theme),
+			widgetStats(job, theme),
+			activity ? theme.fg("dim", activity) : "",
+		].filter(Boolean).join(` ${theme.fg("dim", "·")} `);
+		lines.push(truncLine(`${theme.fg("dim", branch)} ${glyph} ${themeBold(theme, widgetJobName(job))} ${theme.fg("dim", "·")} ${details}`, width));
+	}
+	if (hidden > 0) lines.push(truncLine(theme.fg("dim", `└─ +${hidden} more`), width));
+	return lines;
+}
+
+function buildWidgetComponent(jobs: AsyncJobState[], expanded: boolean): (_tui: unknown, theme: Theme) => Component {
+	return (_tui, theme) => {
+		const width = getTermWidth();
+		const lines = expanded
+			? buildWidgetLines(jobs, theme, width, true)
+			: buildCompactStickyWidgetLines(jobs, theme, width);
+		const container = new Container();
+		for (const line of fitWidgetLineBudget(lines, theme, width, expanded)) container.addChild(new Text(line, 1, 0));
+		return container;
+	};
+}
+'''
+    if "function widgetJobStatusText" not in read_text(path):
+        replace_once(path, old, new, "compact sticky async widget")
+    replace_once(
+        path,
+        "\tctx.ui.setWidget(WIDGET_KEY, buildWidgetComponent(jobs, ctx.ui.getToolsExpanded?.() ?? false));\n",
+        "\tctx.ui.setWidget(WIDGET_KEY, buildWidgetComponent(jobs, ctx.ui.getToolsExpanded?.() ?? false), { placement: \"aboveEditor\" });\n",
+        "async widget placement",
+    )
+    tracker_path = root / "src/runs/background/async-job-tracker.ts"
+    tracker_text = read_text(tracker_path)
+    tracker_old = "\t\t\tif (widgetChanged && state.lastUiContext?.hasUI) rerenderWidget(state.lastUiContext);\n"
+    tracker_new = "\t\t\tconst hasRunningJobs = [...state.asyncJobs.values()].some((job) => job.status === \"running\");\n\t\t\tif ((widgetChanged || hasRunningJobs) && state.lastUiContext?.hasUI) rerenderWidget(state.lastUiContext);\n"
+    if tracker_old in tracker_text:
+        replace_once(tracker_path, tracker_old, tracker_new, "live async widget spinner repaint")
+    elif tracker_new in tracker_text or "\t\t\tif (state.lastUiContext?.hasUI) rerenderWidget(state.lastUiContext);\n" in tracker_text:
+        pass
+    else:
+        die(f"could not find compatible live async widget repaint point in {tracker_path}")
+
+
 def main(argv):
     if len(argv) != 2:
         die("usage: pi-subagents-patch.py <pi-subagents-root>")
@@ -171,6 +277,8 @@ def main(argv):
     patch_child_environment(root)
     patch_output_instructions(root)
     patch_transient_provider_errors(root)
+    patch_forced_async_drops_foreground_timeouts(root)
+    patch_sticky_async_widget(root)
 
 
 if __name__ == "__main__":

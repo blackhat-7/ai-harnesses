@@ -123,7 +123,11 @@ let
     permissionReviewLog = true;
     yoloMode = false;
   };
-  piSubagentsConfig.intercomBridge.mode = "off";
+  piSubagentsConfig = {
+    asyncByDefault = true;
+    forceTopLevelAsync = true;
+    intercomBridge.mode = "always";
+  };
   piKeybindings = {
     "tui.input.newLine" = [
       "shift+enter"
