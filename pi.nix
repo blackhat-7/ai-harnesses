@@ -57,6 +57,7 @@ let
     "npm:pi-intercom"
     "npm:pi-vim"
     "npm:pi-ffmpeg"
+    "npm:@ygncode/pi-web@beta"
   ];
 
   readonlyBashConfig = {
