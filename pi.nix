@@ -84,6 +84,10 @@ let
       "chutes/**"
     ];
     compaction.enabled = true;
+    subagents.agentOverrides.reviewer = {
+      maxExecutionTimeMs = 900000;
+      maxTokens = 120000;
+    };
   };
   piPermissionPolicy = {
     defaultPolicy = {
@@ -126,9 +130,15 @@ let
     yoloMode = false;
   };
   piSubagentsConfig = {
-    asyncByDefault = true;
-    forceTopLevelAsync = true;
+    asyncByDefault = false;
+    forceTopLevelAsync = false;
     intercomBridge.mode = "always";
+    control = {
+      needsAttentionAfterMs = 600000;
+      activeNoticeAfterMs = 900000;
+      notifyOn = [ "needs_attention" ];
+      notifyChannels = [ "async" ];
+    };
   };
   piKeybindings = {
     "tui.input.newLine" = [

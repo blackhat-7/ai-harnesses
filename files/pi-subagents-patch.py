@@ -31,6 +31,18 @@ def replace_once(path, old, new, description):
     write_if_changed(path, text, text.replace(old, new, 1))
 
 
+def replace_if_present(path, old, new, description=None):
+    text = read_text(path)
+    if old in text and new not in text:
+        write_if_changed(path, text, text.replace(old, new, 1))
+
+
+def remove_if_present(path, old):
+    text = read_text(path)
+    if old in text:
+        write_if_changed(path, text, text.replace(old, "", 1))
+
+
 def ensure_after(path, anchor, addition, marker, description):
     text = read_text(path)
     if marker in text:
@@ -160,21 +172,58 @@ def patch_transient_provider_errors(root):
     )
 
 
-def patch_forced_async_drops_foreground_timeouts(root):
-    # forceTopLevelAsync is a safety override. If the caller accidentally adds a
-    # foreground wall-clock timeout, drop it instead of failing or killing active work.
-    path = root / "src/runs/background/top-level-async.ts"
-    replace_once(
-        path,
-        "interface AsyncOverrideParams {\n\tasync?: boolean;\n\tclarify?: boolean;\n}\n",
-        "interface AsyncOverrideParams {\n\tasync?: boolean;\n\tclarify?: boolean;\n\ttimeoutMs?: number;\n\tmaxRuntimeMs?: number;\n}\n",
-        "forced async timeout fields",
+def patch_reviewer_default_reads(root):
+    # Reviewer runs in arbitrary repos; callers can opt into reads per task.
+    remove_if_present(
+        root / "agents/reviewer.md",
+        "defaultReads: plan.md, progress.md\n",
     )
-    replace_once(
+
+
+def patch_forced_async_keeps_foreground_timeouts(root):
+    # If forceTopLevelAsync is enabled, preserve caller timeouts instead of
+    # turning the run into an unbounded detached process.
+    path = root / "src/runs/background/top-level-async.ts"
+    replace_if_present(
         path,
-        "\treturn { ...params, async: true, clarify: false };\n",
         "\tconst { timeoutMs: _timeoutMs, maxRuntimeMs: _maxRuntimeMs, ...rest } = params;\n\treturn { ...rest, async: true, clarify: false } as T;\n",
-        "forced async timeout drop",
+        "\treturn { ...params, async: true, clarify: false } as T;\n",
+    )
+
+
+def patch_interrupt_escalation(root):
+    background_path = root / "src/runs/background/subagent-runner.ts"
+    replace_if_present(
+        background_path,
+        "\t\t\ttrySignalChild(child, \"SIGINT\");\n\t\t\tresourceLimitEscalationTimer = setTimeout(() => {\n\t\t\t\tif (!settled) trySignalChild(child, \"SIGTERM\");\n\t\t\t}, 1000);\n\t\t\tresourceLimitEscalationTimer.unref?.();\n",
+        "\t\t\ttrySignalChild(child, \"SIGINT\");\n\t\t\tresourceLimitEscalationTimer = setTimeout(() => {\n\t\t\t\tif (settled) return;\n\t\t\t\ttrySignalChild(child, \"SIGTERM\");\n\t\t\t\tconst forceKillTimer = setTimeout(() => {\n\t\t\t\t\tif (!settled) trySignalChild(child, \"SIGKILL\");\n\t\t\t\t}, 3000);\n\t\t\t\tforceKillTimer.unref?.();\n\t\t\t}, 1000);\n\t\t\tresourceLimitEscalationTimer.unref?.();\n",
+        "background resource limit hard kill escalation",
+    )
+    replace_if_present(
+        background_path,
+        "\t\t\ttrySignalChild(child, \"SIGINT\");\n\t\t\tsetTimeout(() => {\n\t\t\t\tif (!settled) trySignalChild(child, \"SIGTERM\");\n\t\t\t}, 1000).unref?.();\n",
+        "\t\t\ttrySignalChild(child, \"SIGINT\");\n\t\t\tconst terminateTimer = setTimeout(() => {\n\t\t\t\tif (settled) return;\n\t\t\t\ttrySignalChild(child, \"SIGTERM\");\n\t\t\t\tconst forceKillTimer = setTimeout(() => {\n\t\t\t\t\tif (!settled) trySignalChild(child, \"SIGKILL\");\n\t\t\t\t}, 3000);\n\t\t\t\tforceKillTimer.unref?.();\n\t\t\t}, 1000);\n\t\t\tterminateTimer.unref?.();\n",
+        "background interrupt hard kill escalation",
+    )
+
+    foreground_path = root / "src/runs/foreground/execution.ts"
+    replace_if_present(
+        foreground_path,
+        "\t\t\ttrySignalChild(proc, \"SIGINT\");\n\t\t\tresourceLimitEscalationTimer = setTimeout(() => {\n\t\t\t\tif (settled || processClosed || detached) return;\n\t\t\t\ttrySignalChild(proc, \"SIGTERM\");\n\t\t\t}, 1000);\n\t\t\tresourceLimitEscalationTimer.unref?.();\n",
+        "\t\t\ttrySignalChild(proc, \"SIGINT\");\n\t\t\tresourceLimitEscalationTimer = setTimeout(() => {\n\t\t\t\tif (settled || processClosed || detached) return;\n\t\t\t\ttrySignalChild(proc, \"SIGTERM\");\n\t\t\t\tconst forceKillTimer = setTimeout(() => {\n\t\t\t\t\tif (!(settled || processClosed || detached)) trySignalChild(proc, \"SIGKILL\");\n\t\t\t\t}, 3000);\n\t\t\t\tforceKillTimer.unref?.();\n\t\t\t}, 1000);\n\t\t\tresourceLimitEscalationTimer.unref?.();\n",
+        "foreground resource limit hard kill escalation",
+    )
+    replace_if_present(
+        foreground_path,
+        "\t\t\t\ttrySignalChild(proc, \"SIGINT\");\n\t\t\t\ttimeoutEscalationTimer = setTimeout(() => {\n\t\t\t\t\tif (settled || processClosed || detached) return;\n\t\t\t\t\ttrySignalChild(proc, \"SIGTERM\");\n\t\t\t\t}, 1000);\n\t\t\t\ttimeoutEscalationTimer.unref?.();\n",
+        "\t\t\t\ttrySignalChild(proc, \"SIGINT\");\n\t\t\t\ttimeoutEscalationTimer = setTimeout(() => {\n\t\t\t\t\tif (settled || processClosed || detached) return;\n\t\t\t\t\ttrySignalChild(proc, \"SIGTERM\");\n\t\t\t\t\tconst forceKillTimer = setTimeout(() => {\n\t\t\t\t\t\tif (!(settled || processClosed || detached)) trySignalChild(proc, \"SIGKILL\");\n\t\t\t\t\t}, 3000);\n\t\t\t\t\tforceKillTimer.unref?.();\n\t\t\t\t}, 1000);\n\t\t\t\ttimeoutEscalationTimer.unref?.();\n",
+        "foreground timeout hard kill escalation",
+    )
+    replace_if_present(
+        foreground_path,
+        "\t\t\t\ttrySignalChild(proc, \"SIGINT\");\n\t\t\t\tsetTimeout(() => {\n\t\t\t\t\tif (settled || processClosed || detached) return;\n\t\t\t\t\ttrySignalChild(proc, \"SIGTERM\");\n\t\t\t\t}, 1000).unref?.();\n",
+        "\t\t\t\ttrySignalChild(proc, \"SIGINT\");\n\t\t\t\tconst terminateTimer = setTimeout(() => {\n\t\t\t\t\tif (settled || processClosed || detached) return;\n\t\t\t\t\ttrySignalChild(proc, \"SIGTERM\");\n\t\t\t\t\tconst forceKillTimer = setTimeout(() => {\n\t\t\t\t\t\tif (!(settled || processClosed || detached)) trySignalChild(proc, \"SIGKILL\");\n\t\t\t\t\t}, 3000);\n\t\t\t\t\tforceKillTimer.unref?.();\n\t\t\t\t}, 1000);\n\t\t\t\tterminateTimer.unref?.();\n",
+        "foreground interrupt hard kill escalation",
     )
 
 
@@ -277,7 +326,9 @@ def main(argv):
     patch_child_environment(root)
     patch_output_instructions(root)
     patch_transient_provider_errors(root)
-    patch_forced_async_drops_foreground_timeouts(root)
+    patch_reviewer_default_reads(root)
+    patch_forced_async_keeps_foreground_timeouts(root)
+    patch_interrupt_escalation(root)
     patch_sticky_async_widget(root)
 
 
