@@ -39,6 +39,14 @@ Home Manager writes:
 
 Manual edits to those generated files are not the source of truth.
 
+## Pi permission prompts on macOS
+
+- Pi loads `dotfiles/ai-harnesses/mac-permission-prompt.js` before `@gotgenes/pi-permission-system`.
+- The extension wraps only permission-system confirmation selects; policy/enforcement still stays in `@gotgenes/pi-permission-system`.
+- On macOS it sends a simple `terminal-notifier` banner when Pi permission prompts open.
+- Clicking the banner focuses Kitty; permission decisions stay in Pi's normal TUI prompt.
+- Full prompt payloads and audit JSONL are written under `~/.pi/agent/permission-prompts/` with `0600` files.
+
 ## Pi subagents
 
 - Pi uses `@gotgenes/pi-subagents` plus `@gotgenes/pi-permission-system` for Claude Code/opencode-style live subagent visibility, steering, graceful turn limits, and native forwarded permission prompts.

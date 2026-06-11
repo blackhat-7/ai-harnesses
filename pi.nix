@@ -9,7 +9,6 @@ let
   home = config.home.homeDirectory;
   discardContext = builtins.unsafeDiscardStringContext;
   helpers = import ./helpers.nix { inherit pkgs; };
-
   readonlyBashSrc = inputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
     defaultConfigPath = "${home}/.pi/agent/readonly-bash.json";
@@ -74,7 +73,10 @@ let
     packages = piPackages;
     npmCommand = piNpmCommand;
     skills = [ "${home}/.claude/skills" ];
-    extensions = [ "${home}/dotfiles/ai-harnesses/readonly-bash-classifier.js" ];
+    extensions = [
+      "${home}/dotfiles/ai-harnesses/mac-permission-prompt.js"
+      "${home}/dotfiles/ai-harnesses/readonly-bash-classifier.js"
+    ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
     defaultProvider = "openai-codex";
