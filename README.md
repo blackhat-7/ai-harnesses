@@ -29,9 +29,9 @@ Home Manager writes:
 - `~/.config/opencode/plugins/readonly-bash.js`
 - `~/.config/opencode/agent/reviewer.md`
 - `~/.pi/agent/settings.json`
-- `~/.pi/agent/pi-permissions.jsonc`
 - `~/.pi/agent/readonly-bash.json`
 - `~/.pi/agent/extensions/pi-permission-system/config.json`
+- `~/.pi/agent/subagents.json`
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/web-search.json`
 - `~/.config/mcp/mcp.json`
@@ -39,9 +39,10 @@ Home Manager writes:
 
 Manual edits to those generated files are not the source of truth.
 
-## Package patches
+## Pi subagents
 
-- Home Manager patches `pi-subagents` after install so child Pi processes expose the env metadata required by `pi-permission-system` subagent approval forwarding. Patch failures intentionally fail activation instead of leaving a half-updated Pi install.
+- Pi uses `@gotgenes/pi-subagents` plus `@gotgenes/pi-permission-system` for Claude Code/opencode-style live subagent visibility, steering, graceful turn limits, and native forwarded permission prompts.
+- Home Manager does not patch either package after install; the previous legacy `pi-subagents`/`pi-permission-system` forwarding patches are intentionally dropped in favor of the native gotgenes integration.
 
 ## Dropped
 
@@ -55,7 +56,7 @@ The flow audit entrypoint remains `.claude/skills/audit/SKILL.md` so Claude Code
 
 - Claude Code uses `.claude/agents/reviewer.md` when available.
 - opencode gets a generated `~/.config/opencode/agent/reviewer.md` subagent.
-- Pi has no subagents, so the audit skill uses the same review procedure inline and records that in `REVIEW.md`.
+- Pi uses gotgenes subagents when useful, while flow audit can still fall back to the same inline review procedure when delegation is unavailable.
 
 ## Adding another harness
 

@@ -247,10 +247,17 @@ test("dotfiles config updates readonly-bash through flake input and keeps unknow
   assert.doesNotMatch(piNix, /\|\| true/);
   assert.match(piNix, /npm install --global/);
   assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
-  assert.match(piNix, /\$\{patchPiPackage "pi-subagents" \.\/files\/pi-subagents-patch\.py\}/);
-  assert.match(piNix, /\$\{patchPiPackage "pi-permission-system" \.\/files\/pi-permission-system-patch\.py\}/);
+  assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
+  assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
+  assert.doesNotMatch(piNix, /"npm:pi-subagents"/);
+  assert.doesNotMatch(piNix, /"npm:pi-permission-system"/);
+  assert.doesNotMatch(piNix, /patchPiPackage/);
+  assert.match(piNix, /helpers\.writeJson "\$HOME\/\.pi\/agent\/subagents\.json" piSubagentsSettings/);
+  assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js" "\$HOME\/\.pi\/agent\/pi-permissions\.jsonc" "\$HOME\/\.pi\/agent\/extensions\/subagent\/config\.json"/);
   assert.match(piNix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
+  assert.match(piNix, /get_subagent_result = "allow";/);
+  assert.match(piNix, /steer_subagent = "allow";/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
   for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "gnused", "gawk", "nodejs", "python3"]) {
     assert.match(piNix, new RegExp(`pkgs\\.${pkg}`));

@@ -46,9 +46,9 @@ let
   ];
   piPackages = [
     "npm:pi-mcp-adapter"
-    "npm:pi-permission-system"
+    "npm:@gotgenes/pi-permission-system"
     "npm:pi-web-access"
-    "npm:pi-subagents"
+    "npm:@gotgenes/pi-subagents"
     "npm:pi-mermaid"
     "npm:@juicesharp/rpiv-todo"
     "npm:@ifi/oh-pi-themes"
@@ -68,7 +68,6 @@ let
     trustedPath = piReadonlyBashTrustedPathString;
     globalSettingsPath = "${home}/.pi/agent/settings.json";
     projectSettingsLookup = "cwd";
-    generatedPermissionsPath = "${home}/.pi/agent/pi-permissions.jsonc";
   };
 
   piSettings = {
@@ -84,61 +83,42 @@ let
       "chutes/**"
     ];
     compaction.enabled = true;
-    subagents.agentOverrides.reviewer = {
-      maxExecutionTimeMs = 900000;
-      maxTokens = 120000;
-    };
   };
-  piPermissionPolicy = {
-    defaultPolicy = {
-      tools = "ask";
-      bash = "ask";
+  piPermissionSystemConfig = {
+    debugLog = false;
+    permissionReviewLog = true;
+    yoloMode = false;
+    permission = {
+      "*" = "ask";
       mcp = "allow";
-      skills = "allow";
-      special = "ask";
-    };
-    bash = {
-      "${readonlyBashRunnerCommandString}" = "allow";
-      "READONLY_BASH_REQUEST_ID=* ${readonlyBashRunnerCommandString}" = "allow";
-    };
-    tools = {
+      skill = "allow";
+      external_directory = "allow";
+      bash = {
+        "${readonlyBashRunnerCommandString}" = "allow";
+        "READONLY_BASH_REQUEST_ID=* ${readonlyBashRunnerCommandString}" = "allow";
+      };
       read = "allow";
       grep = "allow";
       find = "allow";
       ls = "allow";
-      mcp = "allow";
       web_search = "allow";
       fetch_content = "allow";
       get_search_content = "allow";
       code_search = "allow";
       todo = "allow";
       subagent = "allow";
+      get_subagent_result = "allow";
+      steer_subagent = "allow";
       intercom = "allow";
       contact_supervisor = "allow";
-      bash = "ask";
       write = "ask";
       edit = "ask";
     };
-    special = {
-      doom_loop = "deny";
-      external_directory = "allow";
-    };
   };
-  piPermissionSystemConfig = {
-    debugLog = false;
-    permissionReviewLog = true;
-    yoloMode = false;
-  };
-  piSubagentsConfig = {
-    asyncByDefault = false;
-    forceTopLevelAsync = false;
-    intercomBridge.mode = "always";
-    control = {
-      needsAttentionAfterMs = 600000;
-      activeNoticeAfterMs = 900000;
-      notifyOn = [ "needs_attention" ];
-      notifyChannels = [ "async" ];
-    };
+  piSubagentsSettings = {
+    maxConcurrent = 4;
+    defaultMaxTurns = 50;
+    graceTurns = 5;
   };
   piKeybindings = {
     "tui.input.newLine" = [
@@ -155,22 +135,6 @@ let
     video.enabled = false;
   };
 
-  patchPiPackage =
-    packageName: patchScript:
-    let
-      packageRoots = [
-        "${home}/.npm-global/lib/node_modules/${packageName}"
-        "${home}/.pi/agent/npm/node_modules/${packageName}"
-      ];
-    in
-    ''
-      for package_root in ${lib.escapeShellArgs packageRoots}; do
-        [ -d "$package_root" ] || continue
-        ${pkgs.python3}/bin/python3 ${patchScript} "$package_root"
-        rm -rf "$package_root/node_modules/.cache/jiti"
-      done
-    '';
-
   writePiSettings = ''
     settings="${home}/.pi/agent/settings.json"
     settings_tmp="$(mktemp)"
@@ -179,9 +143,9 @@ let
     ${builtins.toJSON piSettings}
     EOF
     if [[ -f "$settings" ]]; then
-      ${pkgs.jq}/bin/jq -s '.[0] * .[1] | del(.permissionLevel, .permissionMode)' "$settings" "$settings_tmp" > "$settings.tmp"
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1] | del(.permissionLevel, .permissionMode, .subagents)' "$settings" "$settings_tmp" > "$settings.tmp"
     else
-      ${pkgs.jq}/bin/jq '. | del(.permissionLevel, .permissionMode)' "$settings_tmp" > "$settings.tmp"
+      ${pkgs.jq}/bin/jq '. | del(.permissionLevel, .permissionMode, .subagents)' "$settings_tmp" > "$settings.tmp"
     fi
     mv "$settings.tmp" "$settings"
     rm -f "$settings_tmp"
@@ -196,9 +160,6 @@ let
     npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
     ${writePiSettings}
     "$npm_bin/pi" update --extensions
-
-    ${patchPiPackage "pi-subagents" ./files/pi-subagents-patch.py}
-    ${patchPiPackage "pi-permission-system" ./files/pi-permission-system-patch.py}
   '';
 in
 {
@@ -211,14 +172,13 @@ in
   home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
 
   home.activation.writePiConfigs = lib.hm.dag.entryAfter [ "writeBoundary" "install-pi" ] ''
-    mkdir -p "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.pi/agent/extensions/subagent" "$HOME/.pi/agent/readonly-bash-approvals"
+    mkdir -p "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.pi/agent/readonly-bash-approvals"
     chmod 700 "$HOME/.pi/agent/readonly-bash-approvals"
-    rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js"
+    rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js" "$HOME/.pi/agent/pi-permissions.jsonc" "$HOME/.pi/agent/extensions/subagent/config.json"
     ${helpers.writeJson "$HOME/.pi/agent/readonly-bash.json" readonlyBashConfig}
     ${writePiSettings}
-    ${helpers.writeJson "$HOME/.pi/agent/pi-permissions.jsonc" piPermissionPolicy}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
-    ${helpers.writeJson "$HOME/.pi/agent/extensions/subagent/config.json" piSubagentsConfig}
+    ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./files/chutes-provider.ts}
     ${helpers.writeJson "$HOME/.pi/agent/keybindings.json" piKeybindings}
     ${helpers.writeJson "$HOME/.pi/web-search.json" piWebSearchConfig}
