@@ -4,19 +4,6 @@
   ...
 }:
 let
-  home = config.home.homeDirectory;
-  work = "${home}/Documents/Work/Editing/aftershoot-cloud";
-  envCmd = "${home}/.npm-global/bin/env-cmd";
-
-  envMcp = env: bin: {
-    command = envCmd;
-    args = [
-      "-f"
-      "${work}/env/dev/${env}"
-      "${work}/dist/mcp-servers/${bin}"
-    ];
-  };
-
   mcpServers = {
     bestiary = {
       command = "uvx";
@@ -43,11 +30,13 @@ let
         "chrome-devtools-mcp@latest"
       ];
     };
-    cloudsql-reader = envMcp "cloudsql-reader/app.env" "cloudsql-reader";
-    grafana-loki-reader = envMcp "grafana-loki-reader/app.env" "grafana-loki-reader";
-    mongo-reader = envMcp "mongo-reader/app.env" "mongo-reader";
-    stage-mongo-reader = envMcp "mongo-reader/stage-app.env" "mongo-reader";
-    sentry-reader = envMcp "sentry-reader/app.env" "sentry-reader";
+    aftershoot-mcp = {
+      type = "http";
+      url = "https://mcp-gateway.aftershoot.dev/mcp";
+      headers = {
+        Authorization = "Bearer \${AFTERSHOOT_MCP_API_KEY}";
+      };
+    };
     arxiv = {
       command = "arxiv-mcp-server";
       args = [ ];
@@ -84,6 +73,11 @@ let
       headers = builtins.removeAttrs (base.headers or { }) [ "Authorization" ];
       auth = "bearer";
       bearerTokenEnv = "GITHUB_MCP_TOKEN";
+    }
+    // lib.optionalAttrs (name == "aftershoot-mcp") {
+      headers = builtins.removeAttrs (base.headers or { }) [ "Authorization" ];
+      auth = "bearer";
+      bearerTokenEnv = "AFTERSHOOT_MCP_API_KEY";
     };
 in
 {

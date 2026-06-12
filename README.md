@@ -10,7 +10,7 @@ configuration.
 As a flake input:
 
 ```nix
-inputs.ai-harnesses.url = "github:blackhat-7/ai-harnesses";
+inputs.ai-harnesses.url = "github:blackhat-7/ai-harnesses/main";
 # Optional if the parent flake already pins readonly-bash:
 inputs.ai-harnesses.inputs.readonly-bash.follows = "readonly-bash";
 ```
@@ -21,11 +21,12 @@ Then import the Home Manager module:
 inputs.ai-harnesses.homeManagerModules.default
 ```
 
-For local development before publishing the repo, use a path input from the
-consuming flake:
+For local development, keep the committed input on GitHub and override it from
+the command line when needed:
 
-```nix
-inputs.ai-harnesses.url = "path:../../Documents/projects/ai-harnesses";
+```bash
+nix build .#homeConfigurations.illusion.activationPackage \
+  --override-input ai-harnesses path:$HOME/Documents/projects/ai-harnesses
 ```
 
 ## Source of truth
@@ -35,6 +36,7 @@ inputs.ai-harnesses.url = "path:../../Documents/projects/ai-harnesses";
 - opencode config lives in `opencode.nix`.
 - Pi config lives in `pi.nix`.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
+- Remote MCP API keys are referenced through environment variables such as `GITHUB_MCP_TOKEN` and `AFTERSHOOT_MCP_API_KEY`.
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
 
 ## readonly-bash auto-approval

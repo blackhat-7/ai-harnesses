@@ -11,7 +11,7 @@ let
   opencodeEnabled = {
     bestiary = true;
     github = true;
-    cloudsql-reader = true;
+    aftershoot-mcp = true;
     arxiv = true;
   };
   opencodeMcpServer =
@@ -23,6 +23,7 @@ let
         enabled = opencodeEnabled.${name} or false;
       }
       // lib.optionalAttrs (v ? headers) {
+        oauth = false;
         headers = builtins.mapAttrs (_: lib.replaceStrings [ "\${" "}" ] [ "{env:" "}" ]) v.headers;
       }
     else

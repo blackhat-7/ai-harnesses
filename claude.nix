@@ -19,11 +19,7 @@ let
       ./files/claude-notify-linux.sh;
 
   claudeMcpAllows = [
-    "mcp__cloudsql-reader"
-    "mcp__mongo-reader"
-    "mcp__stage-mongo-reader"
-    "mcp__grafana-loki-reader"
-    "mcp__sentry-reader"
+    "mcp__aftershoot-mcp"
     "mcp__arxiv"
     "mcp__bestiary"
     "mcp__chrome-devtools"

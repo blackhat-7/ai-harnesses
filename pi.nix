@@ -42,7 +42,6 @@ let
   piNpmCommand = [ "npm" ] ++ npmInstallFlags;
   piGlobalNpmPackages = [
     "@earendil-works/pi-coding-agent"
-    "env-cmd"
     "beautiful-mermaid"
   ];
   piPackages = [
