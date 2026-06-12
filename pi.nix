@@ -9,6 +9,7 @@
 let
   discardContext = builtins.unsafeDiscardStringContext;
   helpers = import ./helpers.nix { inherit pkgs; };
+  isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
 
   readonlyBashSrc = aiHarnessesInputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
@@ -83,36 +84,40 @@ let
     ];
     compaction.enabled = true;
   };
+  piYoloPermission = {
+    "*" = "allow";
+  };
+  piRestrictedPermission = {
+    "*" = "ask";
+    mcp = "allow";
+    skill = "allow";
+    external_directory = "allow";
+    bash = {
+      "${readonlyBashRunnerCommandString}" = "allow";
+      "READONLY_BASH_REQUEST_ID=* ${readonlyBashRunnerCommandString}" = "allow";
+    };
+    read = "allow";
+    grep = "allow";
+    find = "allow";
+    ls = "allow";
+    web_search = "allow";
+    fetch_content = "allow";
+    get_search_content = "allow";
+    code_search = "allow";
+    todo = "allow";
+    subagent = "allow";
+    get_subagent_result = "allow";
+    steer_subagent = "allow";
+    intercom = "allow";
+    contact_supervisor = "allow";
+    write = "ask";
+    edit = "ask";
+  };
   piPermissionSystemConfig = {
     debugLog = false;
     permissionReviewLog = true;
-    yoloMode = false;
-    permission = {
-      "*" = "ask";
-      mcp = "allow";
-      skill = "allow";
-      external_directory = "allow";
-      bash = {
-        "${readonlyBashRunnerCommandString}" = "allow";
-        "READONLY_BASH_REQUEST_ID=* ${readonlyBashRunnerCommandString}" = "allow";
-      };
-      read = "allow";
-      grep = "allow";
-      find = "allow";
-      ls = "allow";
-      web_search = "allow";
-      fetch_content = "allow";
-      get_search_content = "allow";
-      code_search = "allow";
-      todo = "allow";
-      subagent = "allow";
-      get_subagent_result = "allow";
-      steer_subagent = "allow";
-      intercom = "allow";
-      contact_supervisor = "allow";
-      write = "ask";
-      edit = "ask";
-    };
+    yoloMode = isYolo;
+    permission = if isYolo then piYoloPermission else piRestrictedPermission;
   };
   piSubagentsSettings = {
     maxConcurrent = 4;

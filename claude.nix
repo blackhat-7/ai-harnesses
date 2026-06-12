@@ -8,6 +8,7 @@ let
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   helpers = import ./helpers.nix { inherit pkgs; };
   mcpData = import ./mcp-servers.nix { inherit lib config; };
+  isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
 
   notifyScript =
     if isDarwin then
@@ -49,22 +50,28 @@ let
       type = "command";
       command = ''bash "$HOME/.claude/statusline-command.sh"'';
     };
-    permissions = {
-      allow = [
-        "Read"
-        "Glob"
-        "Grep"
-        "LSP"
-        "Task"
-        "WebFetch"
-        "WebSearch"
-      ] ++ claudeMcpAllows;
-      deny = [ ];
-      ask = [
-        "Edit"
-        "Write"
-      ];
-    };
+    permissions =
+      if isYolo then
+        {
+          defaultMode = "bypassPermissions";
+        }
+      else
+        {
+          allow = [
+            "Read"
+            "Glob"
+            "Grep"
+            "LSP"
+            "Task"
+            "WebFetch"
+            "WebSearch"
+          ] ++ claudeMcpAllows;
+          deny = [ ];
+          ask = [
+            "Edit"
+            "Write"
+          ];
+        };
     enabledPlugins = {
       "pyright-lsp@claude-plugins-official" = true;
       "gopls-lsp@claude-plugins-official" = true;

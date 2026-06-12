@@ -7,6 +7,7 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   mcpData = import ./mcp-servers.nix { inherit lib config; };
+  isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
 
   opencodeEnabled = {
     bestiary = true;
@@ -34,30 +35,40 @@ let
       }
       // lib.optionalAttrs (v ? env) { environment = v.env; };
 
+  opencodeMcpPermission = builtins.listToAttrs (
+    map (name: {
+      name = "${name}_*";
+      value = "allow";
+    }) (builtins.attrNames mcpData.mcpServers)
+  );
+  opencodeYoloPermission = {
+    "*" = "allow";
+    bash."*" = "allow";
+    external_directory = "allow";
+    skill."*" = "allow";
+  };
+  opencodeRestrictedPermission = {
+    "*" = "ask";
+    bash."*" = "ask";
+    external_directory = "allow";
+    websearch = "allow";
+    glob = "allow";
+    grep = "allow";
+    list = "allow";
+    lsp = "allow";
+    read = "allow";
+    task = "allow";
+    todoread = "allow";
+    todowrite = "allow";
+    webfetch = "allow";
+    skill."*" = "allow";
+  };
+  opencodePermission =
+    (if isYolo then opencodeYoloPermission else opencodeRestrictedPermission) // opencodeMcpPermission;
+
   opencodeConfig = {
     "$schema" = "https://opencode.ai/config.json";
-    permission = {
-      "*" = "ask";
-      bash."*" = "ask";
-      external_directory = "allow";
-      websearch = "allow";
-      glob = "allow";
-      grep = "allow";
-      list = "allow";
-      lsp = "allow";
-      read = "allow";
-      task = "allow";
-      todoread = "allow";
-      todowrite = "allow";
-      webfetch = "allow";
-      skill."*" = "allow";
-    }
-    // builtins.listToAttrs (
-      map (name: {
-        name = "${name}_*";
-        value = "allow";
-      }) (builtins.attrNames mcpData.mcpServers)
-    );
+    permission = opencodePermission;
     provider.local-llm = {
       npm = "@ai-sdk/openai-compatible";
       name = "Local LLM";

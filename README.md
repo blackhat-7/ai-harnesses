@@ -21,6 +21,13 @@ Then import the Home Manager module:
 inputs.ai-harnesses.homeManagerModules.default
 ```
 
+Optional mode selection:
+
+```nix
+aiHarnesses.mode = "restricted"; # default: ask for writes/unknown bash
+# aiHarnesses.mode = "yolo";     # container/sandbox use: allow broadly
+```
+
 For local development, keep the committed input on GitHub and override it from
 the command line when needed:
 

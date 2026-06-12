@@ -235,13 +235,18 @@ test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () =
 });
 
 test("standalone flake exports Home Manager module and keeps unknown bash on ask", () => {
+  const defaultNix = fs.readFileSync(path.join(__dirname, "default.nix"), "utf8");
   const piNix = fs.readFileSync(path.join(__dirname, "pi.nix"), "utf8");
+  const claudeNix = fs.readFileSync(path.join(__dirname, "claude.nix"), "utf8");
   const opencodeNix = fs.readFileSync(path.join(__dirname, "opencode.nix"), "utf8");
   const flakeNix = fs.readFileSync(path.join(__dirname, "flake.nix"), "utf8");
 
   assert.match(flakeNix, /homeManagerModules\.default/);
   assert.match(flakeNix, /_module\.args\.aiHarnessesInputs = inputs;/);
   assert.match(flakeNix, /url = "github:blackhat-7\/readonly-bash\/main";/);
+  assert.match(defaultNix, /options\.aiHarnesses\.mode/);
+  assert.match(defaultNix, /lib\.types\.enum \[ "restricted" "yolo" \]/);
+  assert.match(defaultNix, /default = "restricted";/);
 
   assert.match(piNix, /readonlyBashSrc = aiHarnessesInputs\.readonly-bash;/);
   assert.doesNotMatch(piNix, /readonlyBashSrc = inputs\.readonly-bash;/);
@@ -258,6 +263,9 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /helpers\.writeJson "\$HOME\/\.pi\/agent\/subagents\.json" piSubagentsSettings/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js" "\$HOME\/\.pi\/agent\/pi-permissions\.jsonc" "\$HOME\/\.pi\/agent\/extensions\/subagent\/config\.json"/);
   assert.match(piNix, /extensions = \[ "\$\{\.\/readonly-bash-classifier\.js\}" \];/);
+  assert.match(piNix, /piYoloPermission = \{\s*"\*" = "allow";/);
+  assert.match(piNix, /yoloMode = isYolo;/);
+  assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
   assert.match(piNix, /get_subagent_result = "allow";/);
   assert.match(piNix, /steer_subagent = "allow";/);
@@ -266,7 +274,9 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
     assert.match(piNix, new RegExp(`pkgs\\.${pkg}`));
   }
 
+  assert.match(claudeNix, /defaultMode = "bypassPermissions";/);
   assert.doesNotMatch(opencodeNix, /opencodeConfig = \{[\s\S]*?shell = /);
+  assert.match(opencodeNix, /bash\."\*" = "allow";/);
   assert.match(opencodeNix, /bash\."\*" = "ask";/);
   assert.match(opencodeNix, /helpers\.copyFile "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js" \.\/readonly-bash-opencode-plugin\.mjs/);
 });
