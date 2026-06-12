@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createReadonlyBashClassifier, execPrepareDefault, firstShellWord } = require("./readonly-bash-classifier.js");
+const { createReadonlyBashClassifier, execPrepareDefault, expandPath, firstShellWord } = require("./readonly-bash-classifier.js");
 
 async function loadOpenCodePlugin() {
   return import("./readonly-bash-opencode-plugin.mjs");
@@ -275,6 +275,18 @@ test("firstShellWord parses quoted and escaped runner paths", () => {
   assert.equal(firstShellWord("  '/runner path' --flag"), "/runner path");
   assert.equal(firstShellWord('/runner; rm -rf /'), "/runner");
   assert.equal(firstShellWord("\\/runner --flag"), "/runner");
+});
+
+test("expandPath resolves runtime home paths", () => {
+  const previous = snapshotEnv(["HOME"]);
+  process.env.HOME = "/tmp/runtime-home";
+  try {
+    assert.equal(expandPath("~/x"), "/tmp/runtime-home/x");
+    assert.equal(expandPath("$HOME/x"), "/tmp/runtime-home/x");
+    assert.equal(expandPath("${HOME}/x"), "/tmp/runtime-home/x");
+  } finally {
+    restoreEnv(previous);
+  }
 });
 
 function fakePi() {

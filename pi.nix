@@ -7,13 +7,12 @@
   ...
 }:
 let
-  home = config.home.homeDirectory;
   discardContext = builtins.unsafeDiscardStringContext;
   helpers = import ./helpers.nix { inherit pkgs; };
 
   readonlyBashSrc = aiHarnessesInputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
-    defaultConfigPath = "${home}/.pi/agent/readonly-bash.json";
+    defaultConfigPath = "~/.pi/agent/readonly-bash.json";
   };
 
   readonlyBashCliString = discardContext "${readonlyBashPkg}/bin/readonly-bash";
@@ -63,17 +62,17 @@ let
   readonlyBashConfig = {
     cliPath = readonlyBashCliString;
     runnerPath = readonlyBashRunnerCommandString;
-    approvalDir = "${home}/.pi/agent/readonly-bash-approvals";
+    approvalDir = "~/.pi/agent/readonly-bash-approvals";
     trustedShell = piReadonlyBashTrustedShellString;
     trustedPath = piReadonlyBashTrustedPathString;
-    globalSettingsPath = "${home}/.pi/agent/settings.json";
+    globalSettingsPath = "~/.pi/agent/settings.json";
     projectSettingsLookup = "cwd";
   };
 
   piSettings = {
     packages = piPackages;
     npmCommand = piNpmCommand;
-    skills = [ "${home}/.claude/skills" ];
+    skills = [ "~/.claude/skills" ];
     extensions = [ "${./readonly-bash-classifier.js}" ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
@@ -136,7 +135,7 @@ let
   };
 
   writePiSettings = ''
-    settings="${home}/.pi/agent/settings.json"
+    settings="$HOME/.pi/agent/settings.json"
     settings_tmp="$(mktemp)"
     mkdir -p "$(dirname "$settings")"
     ${pkgs.jq}/bin/jq . <<'EOF' > "$settings_tmp"
@@ -153,7 +152,7 @@ let
 
   installPiActivation = ''
     export PATH="${pkgs.nodejs_24}/bin:$PATH"
-    export npm_config_prefix="${home}/.npm-global"
+    export npm_config_prefix="$HOME/.npm-global"
     npm_bin="$npm_config_prefix/bin"
     mkdir -p "$npm_bin"
 

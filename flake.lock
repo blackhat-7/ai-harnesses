@@ -3,11 +3,11 @@
     "readonly-bash": {
       "flake": false,
       "locked": {
-        "lastModified": 1780573318,
-        "narHash": "sha256-Ue0nO2r01fAHc5fFryG4kpUv4yruc6ZCYDUe+/0/+HY=",
+        "lastModified": 1781282803,
+        "narHash": "sha256-DZJy6NyCi61Cl9Sa0M/tQnyz4JfCsTU4UPZIr4nfS5U=",
         "owner": "blackhat-7",
         "repo": "readonly-bash",
-        "rev": "0a9ae77db21b7dc8573a953fce7c71cfe0c7f299",
+        "rev": "ff238510ef7e5a7dc9bcde82f0ed37ede2c4cf2e",
         "type": "github"
       },
       "original": {

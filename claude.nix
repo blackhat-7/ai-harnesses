@@ -5,7 +5,6 @@
   ...
 }:
 let
-  home = config.home.homeDirectory;
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   helpers = import ./helpers.nix { inherit pkgs; };
   mcpData = import ./mcp-servers.nix { inherit lib config; };
@@ -48,7 +47,7 @@ let
     viewMode = "verbose";
     statusLine = {
       type = "command";
-      command = "bash ${home}/.claude/statusline-command.sh";
+      command = ''bash "$HOME/.claude/statusline-command.sh"'';
     };
     permissions = {
       allow = [
@@ -80,7 +79,7 @@ let
               hooks = [
                 {
                   type = "command";
-                  command = "bash ${home}/.claude/notify.sh";
+                  command = ''bash "$HOME/.claude/notify.sh"'';
                 }
               ];
             }

@@ -25,8 +25,8 @@ For local development, keep the committed input on GitHub and override it from
 the command line when needed:
 
 ```bash
-nix build .#homeConfigurations.illusion.activationPackage \
-  --override-input ai-harnesses path:$HOME/Documents/projects/ai-harnesses
+nix build .#homeConfigurations.<name>.activationPackage \
+  --override-input ai-harnesses path:/path/to/ai-harnesses
 ```
 
 ## Source of truth

@@ -64,7 +64,17 @@ export function createReadonlyBashOpenCodePlugin(options = {}) {
 }
 
 function loadConfig(configPath) {
-  return JSON.parse(fs.readFileSync(configPath, "utf8"));
+  return JSON.parse(fs.readFileSync(expandPath(configPath), "utf8"));
+}
+
+function expandPath(pathValue) {
+  if (typeof pathValue !== "string" || pathValue === "") return pathValue;
+  const home = os.homedir();
+  if (pathValue === "~" || pathValue === "$HOME" || pathValue === "${HOME}") return home;
+  for (const prefix of ["~/", "$HOME/", "${HOME}/"]) {
+    if (pathValue.startsWith(prefix)) return path.join(home, pathValue.slice(prefix.length));
+  }
+  return pathValue;
 }
 
 async function replyAllowOnce(client, request, directory) {
