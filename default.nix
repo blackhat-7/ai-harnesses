@@ -8,9 +8,24 @@
     ./mcp.nix
   ];
 
-  options.aiHarnesses.mode = lib.mkOption {
-    type = lib.types.enum [ "restricted" "yolo" ];
-    default = "restricted";
-    description = "Permission profile for generated AI harness configs.";
+  options.aiHarnesses = {
+    mode = lib.mkOption {
+      type = lib.types.enum [ "restricted" "yolo" ];
+      default = "restricted";
+      description = "Permission profile for generated AI harness configs.";
+    };
+
+    mcp = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Whether to generate and load MCP server configs.";
+      };
+      enabledServers = lib.mkOption {
+        type = lib.types.nullOr (lib.types.listOf lib.types.str);
+        default = null;
+        description = "MCP server names to enable. null means all known servers.";
+      };
+    };
   };
 }

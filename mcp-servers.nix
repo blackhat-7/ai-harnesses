@@ -4,7 +4,10 @@
   ...
 }:
 let
-  mcpServers = {
+  mcpEnable = config.aiHarnesses.mcp.enable or true;
+  selectedServers = config.aiHarnesses.mcp.enabledServers or null;
+
+  allMcpServers = {
     bestiary = {
       command = "uvx";
       args = [
@@ -59,6 +62,21 @@ let
       };
     };
   };
+
+  unknownServers =
+    if selectedServers == null then
+      [ ]
+    else
+      builtins.filter (name: !(builtins.hasAttr name allMcpServers)) selectedServers;
+  mcpServers =
+    assert lib.assertMsg (unknownServers == [ ])
+      "Unknown aiHarnesses.mcp.enabledServers: ${builtins.concatStringsSep ", " unknownServers}";
+    if !mcpEnable then
+      { }
+    else if selectedServers == null then
+      allMcpServers
+    else
+      lib.filterAttrs (name: _: builtins.elem name selectedServers) allMcpServers;
 
   piMcpServer =
     name: v:

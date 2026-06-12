@@ -21,12 +21,17 @@ Then import the Home Manager module:
 inputs.ai-harnesses.homeManagerModules.default
 ```
 
-Optional mode selection:
+Optional mode and MCP selection:
 
 ```nix
 aiHarnesses.mode = "restricted"; # default: ask for writes/unknown bash
 # aiHarnesses.mode = "yolo";     # container/sandbox use: allow broadly
+
+aiHarnesses.mcp.enable = true;         # false writes empty MCP configs
+aiHarnesses.mcp.enabledServers = null; # all known servers, or e.g. [ "github" "bestiary" ]
 ```
+
+MCP selection is static Nix config, not env/project config, so a vivarium agent cannot self-enable disabled MCPs through this module.
 
 For local development, keep the committed input on GitHub and override it from
 the command line when needed:

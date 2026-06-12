@@ -239,14 +239,20 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   const piNix = fs.readFileSync(path.join(__dirname, "pi.nix"), "utf8");
   const claudeNix = fs.readFileSync(path.join(__dirname, "claude.nix"), "utf8");
   const opencodeNix = fs.readFileSync(path.join(__dirname, "opencode.nix"), "utf8");
+  const mcpServersNix = fs.readFileSync(path.join(__dirname, "mcp-servers.nix"), "utf8");
   const flakeNix = fs.readFileSync(path.join(__dirname, "flake.nix"), "utf8");
 
   assert.match(flakeNix, /homeManagerModules\.default/);
   assert.match(flakeNix, /_module\.args\.aiHarnessesInputs = inputs;/);
   assert.match(flakeNix, /url = "github:blackhat-7\/readonly-bash\/main";/);
-  assert.match(defaultNix, /options\.aiHarnesses\.mode/);
+  assert.match(defaultNix, /options\.aiHarnesses =/);
+  assert.match(defaultNix, /mode = lib\.mkOption/);
   assert.match(defaultNix, /lib\.types\.enum \[ "restricted" "yolo" \]/);
   assert.match(defaultNix, /default = "restricted";/);
+  assert.match(defaultNix, /mcp = \{/);
+  assert.match(defaultNix, /enabledServers/);
+  assert.match(mcpServersNix, /unknownServers/);
+  assert.match(mcpServersNix, /if !mcpEnable then\s*\{ \}/);
 
   assert.match(piNix, /readonlyBashSrc = aiHarnessesInputs\.readonly-bash;/);
   assert.doesNotMatch(piNix, /readonlyBashSrc = inputs\.readonly-bash;/);
@@ -255,6 +261,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.doesNotMatch(piNix, /\|\| true/);
   assert.match(piNix, /npm install --global/);
   assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
+  assert.match(piNix, /lib\.optionals mcpEnabled \[/);
   assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
   assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
   assert.doesNotMatch(piNix, /"npm:pi-subagents"/);
@@ -274,6 +281,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
     assert.match(piNix, new RegExp(`pkgs\\.${pkg}`));
   }
 
+  assert.match(claudeNix, /hasMcp = name:/);
   assert.match(claudeNix, /defaultMode = "bypassPermissions";/);
   assert.doesNotMatch(opencodeNix, /opencodeConfig = \{[\s\S]*?shell = /);
   assert.match(opencodeNix, /bash\."\*" = "allow";/);

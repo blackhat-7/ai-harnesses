@@ -10,6 +10,8 @@ let
   discardContext = builtins.unsafeDiscardStringContext;
   helpers = import ./helpers.nix { inherit pkgs; };
   isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
+  selectedMcpServers = config.aiHarnesses.mcp.enabledServers or null;
+  mcpEnabled = (config.aiHarnesses.mcp.enable or true) && selectedMcpServers != [ ];
 
   readonlyBashSrc = aiHarnessesInputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
@@ -44,8 +46,9 @@ let
     "@earendil-works/pi-coding-agent"
     "beautiful-mermaid"
   ];
-  piPackages = [
+  piPackages = lib.optionals mcpEnabled [
     "npm:pi-mcp-adapter"
+  ] ++ [
     "npm:@gotgenes/pi-permission-system"
     "npm:pi-web-access"
     "npm:@gotgenes/pi-subagents"
@@ -89,7 +92,6 @@ let
   };
   piRestrictedPermission = {
     "*" = "ask";
-    mcp = "allow";
     skill = "allow";
     external_directory = "allow";
     bash = {
@@ -112,6 +114,8 @@ let
     contact_supervisor = "allow";
     write = "ask";
     edit = "ask";
+  } // lib.optionalAttrs mcpEnabled {
+    mcp = "allow";
   };
   piPermissionSystemConfig = {
     debugLog = false;

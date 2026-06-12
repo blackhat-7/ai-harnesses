@@ -18,30 +18,33 @@ let
     else
       ./files/claude-notify-linux.sh;
 
-  claudeMcpAllows = [
-    "mcp__aftershoot-mcp"
-    "mcp__arxiv"
-    "mcp__bestiary"
-    "mcp__chrome-devtools"
-    "mcp__github"
-    "mcp__linear__linear_getViewer"
-    "mcp__linear__linear_getOrganization"
-    "mcp__linear__linear_getUsers"
-    "mcp__linear__linear_getLabels"
-    "mcp__linear__linear_getTeams"
-    "mcp__linear__linear_getProjects"
-    "mcp__linear__linear_getIssues"
-    "mcp__linear__linear_getIssueById"
-    "mcp__linear__linear_searchIssues"
-    "mcp__linear__linear_getComments"
-    "mcp__linear__linear_getProjectIssues"
-    "mcp__linear__linear_getCycles"
-    "mcp__linear__linear_getActiveCycle"
-    "mcp__linear__linear_getInitiatives"
-    "mcp__linear__linear_getInitiativeById"
-    "mcp__linear__linear_getInitiativeProjects"
-    "mcp__linear__linear_getIssueHistory"
-  ];
+  hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
+  claudeMcpAllows =
+    lib.optionals (hasMcp "aftershoot-mcp") [ "mcp__aftershoot-mcp" ]
+    ++ lib.optionals (hasMcp "arxiv") [ "mcp__arxiv" ]
+    ++ lib.optionals (hasMcp "bestiary") [ "mcp__bestiary" ]
+    ++ lib.optionals (hasMcp "chrome-devtools") [ "mcp__chrome-devtools" ]
+    ++ lib.optionals (hasMcp "github") [ "mcp__github" ]
+    ++ lib.optionals (hasMcp "playwright") [ "mcp__playwright" ]
+    ++ lib.optionals (hasMcp "linear") [
+      "mcp__linear__linear_getViewer"
+      "mcp__linear__linear_getOrganization"
+      "mcp__linear__linear_getUsers"
+      "mcp__linear__linear_getLabels"
+      "mcp__linear__linear_getTeams"
+      "mcp__linear__linear_getProjects"
+      "mcp__linear__linear_getIssues"
+      "mcp__linear__linear_getIssueById"
+      "mcp__linear__linear_searchIssues"
+      "mcp__linear__linear_getComments"
+      "mcp__linear__linear_getProjectIssues"
+      "mcp__linear__linear_getCycles"
+      "mcp__linear__linear_getActiveCycle"
+      "mcp__linear__linear_getInitiatives"
+      "mcp__linear__linear_getInitiativeById"
+      "mcp__linear__linear_getInitiativeProjects"
+      "mcp__linear__linear_getIssueHistory"
+    ];
 
   claudeSettings = {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
