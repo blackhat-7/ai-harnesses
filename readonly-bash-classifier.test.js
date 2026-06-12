@@ -234,15 +234,18 @@ test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () =
   await assert.rejects(() => execPrepareDefault(invalid, { command: "pwd" }, 1000));
 });
 
-test("dotfiles config updates readonly-bash through flake input and keeps unknown bash on ask", () => {
+test("standalone flake exports Home Manager module and keeps unknown bash on ask", () => {
   const piNix = fs.readFileSync(path.join(__dirname, "pi.nix"), "utf8");
   const opencodeNix = fs.readFileSync(path.join(__dirname, "opencode.nix"), "utf8");
-  const darwinFlake = fs.readFileSync(path.join(__dirname, "..", "nix-darwin", "flake.nix"), "utf8");
-  const linuxFlake = fs.readFileSync(path.join(__dirname, "..", "nix", "flake.nix"), "utf8");
-  const darwinJustfile = fs.readFileSync(path.join(__dirname, "..", "nix-darwin", "Justfile"), "utf8");
-  const linuxJustfile = fs.readFileSync(path.join(__dirname, "..", "nix", "Justfile"), "utf8");
+  const flakeNix = fs.readFileSync(path.join(__dirname, "flake.nix"), "utf8");
 
-  assert.match(piNix, /readonlyBashSrc = inputs\.readonly-bash;/);
+  assert.match(flakeNix, /homeManagerModules\.default/);
+  assert.match(flakeNix, /_module\.args\.aiHarnessesInputs = inputs;/);
+  assert.match(flakeNix, /url = "github:blackhat-7\/readonly-bash\/main";/);
+
+  assert.match(piNix, /readonlyBashSrc = aiHarnessesInputs\.readonly-bash;/);
+  assert.doesNotMatch(piNix, /readonlyBashSrc = inputs\.readonly-bash;/);
+  assert.doesNotMatch(piNix, /\$\{home\}\/[^\"]*readonly-bash-classifier\.js/);
   assert.doesNotMatch(piNix, /builtins\.fetchGit|pkgs\.fetchFromGitHub/);
   assert.doesNotMatch(piNix, /\|\| true/);
   assert.match(piNix, /npm install --global/);
@@ -254,7 +257,7 @@ test("dotfiles config updates readonly-bash through flake input and keeps unknow
   assert.doesNotMatch(piNix, /patchPiPackage/);
   assert.match(piNix, /helpers\.writeJson "\$HOME\/\.pi\/agent\/subagents\.json" piSubagentsSettings/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js" "\$HOME\/\.pi\/agent\/pi-permissions\.jsonc" "\$HOME\/\.pi\/agent\/extensions\/subagent\/config\.json"/);
-  assert.match(piNix, /extensions = \[ "\$\{home\}\/dotfiles\/ai-harnesses\/readonly-bash-classifier\.js" \]/);
+  assert.match(piNix, /extensions = \[ "\$\{\.\/readonly-bash-classifier\.js\}" \];/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
   assert.match(piNix, /get_subagent_result = "allow";/);
   assert.match(piNix, /steer_subagent = "allow";/);
@@ -262,12 +265,6 @@ test("dotfiles config updates readonly-bash through flake input and keeps unknow
   for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "gnused", "gawk", "nodejs", "python3"]) {
     assert.match(piNix, new RegExp(`pkgs\\.${pkg}`));
   }
-
-  for (const flake of [darwinFlake, linuxFlake]) {
-    assert.match(flake, /readonly-bash = \{\s+url = "github:blackhat-7\/readonly-bash\/main";\s+flake = false;\s+\};/);
-  }
-  assert.match(darwinJustfile, /nix flake update nixpkgs readonly-bash/);
-  assert.match(linuxJustfile, /\{\{NIX\}\} flake update nixpkgs readonly-bash/);
 
   assert.doesNotMatch(opencodeNix, /opencodeConfig = \{[\s\S]*?shell = /);
   assert.match(opencodeNix, /bash\."\*" = "ask";/);
