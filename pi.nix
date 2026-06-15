@@ -77,6 +77,7 @@ let
     packages = piPackages;
     npmCommand = piNpmCommand;
     skills = [ "~/.claude/skills" ];
+    prompts = [ "~/.claude/commands" ];
     extensions = [ "${./readonly-bash-classifier.js}" ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
