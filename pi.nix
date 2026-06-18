@@ -58,6 +58,8 @@ let
     "npm:pi-opencode-theme"
     "npm:pi-rewind"
     "npm:pi-intercom"
+    "npm:pi-autoname"
+    "npm:pi-bar"
     "npm:pi-vim"
     "npm:pi-ffmpeg"
     "npm:@ygncode/pi-web@beta"
