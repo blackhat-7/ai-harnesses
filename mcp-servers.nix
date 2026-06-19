@@ -40,13 +40,6 @@ let
         Authorization = "Bearer \${AFTERSHOOT_MCP_API_KEY}";
       };
     };
-    arxiv = {
-      command = "arxiv-mcp-server";
-      args = [ ];
-      env = {
-        ARXIV_STORAGE_PATH = "~/Downloads/papers";
-      };
-    };
     playwright = {
       command = "npx";
       args = [ "@playwright/mcp@latest" ];

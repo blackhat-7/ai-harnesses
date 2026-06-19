@@ -21,7 +21,6 @@ let
   hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
   claudeMcpAllows =
     lib.optionals (hasMcp "aftershoot-mcp") [ "mcp__aftershoot-mcp" ]
-    ++ lib.optionals (hasMcp "arxiv") [ "mcp__arxiv" ]
     ++ lib.optionals (hasMcp "bestiary") [ "mcp__bestiary" ]
     ++ lib.optionals (hasMcp "chrome-devtools") [ "mcp__chrome-devtools" ]
     ++ lib.optionals (hasMcp "github") [ "mcp__github" ]

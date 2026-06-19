@@ -13,7 +13,6 @@ let
     bestiary = true;
     github = true;
     aftershoot-mcp = true;
-    arxiv = true;
   };
   opencodeMcpServer =
     name: v:
