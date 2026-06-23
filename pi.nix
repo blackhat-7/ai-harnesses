@@ -163,7 +163,7 @@ let
   '';
 
   installPiActivation = ''
-    export PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.curl pkgs.wget ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.curl pkgs.wget pkgs.perl ]}:$PATH"
     export npm_config_prefix="$HOME/.npm-global"
     npm_bin="$npm_config_prefix/bin"
     mkdir -p "$npm_bin"
