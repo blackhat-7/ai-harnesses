@@ -62,6 +62,7 @@ let
     "npm:pi-bar"
     "npm:pi-vim"
     "npm:pi-ffmpeg"
+    "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
   ];
 
   readonlyBashConfig = {
