@@ -279,6 +279,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
   assert.match(piNix, /workflow = "allow";/);
+  assert.match(piNix, /web_fetch = "allow";/);
   assert.match(piNix, /structured_output = "allow";/);
   assert.match(piNix, /get_subagent_result = "allow";/);
   assert.match(piNix, /steer_subagent = "allow";/);

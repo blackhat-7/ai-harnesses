@@ -106,6 +106,7 @@ let
     find = "allow";
     ls = "allow";
     web_search = "allow";
+    web_fetch = "allow";
     fetch_content = "allow";
     get_search_content = "allow";
     code_search = "allow";
