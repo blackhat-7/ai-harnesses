@@ -260,6 +260,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.doesNotMatch(piNix, /builtins\.fetchGit|pkgs\.fetchFromGitHub/);
   assert.doesNotMatch(piNix, /\|\| true/);
   assert.match(piNix, /npm install --global/);
+  assert.match(piNix, /pkgs\.git/);
   assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
   assert.match(piNix, /lib\.optionals mcpEnabled \[/);
   assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
@@ -270,7 +271,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.doesNotMatch(piNix, /patchPiPackage/);
   assert.match(piNix, /helpers\.writeJson "\$HOME\/\.pi\/agent\/subagents\.json" piSubagentsSettings/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js" "\$HOME\/\.pi\/agent\/pi-permissions\.jsonc" "\$HOME\/\.pi\/agent\/extensions\/subagent\/config\.json"/);
-  assert.match(piNix, /extensions = \[ "\$\{\.\/readonly-bash-classifier\.js\}" \];/);
+  assert.ok(piNix.indexOf('"${./readonly-bash-classifier.js}"') < piNix.indexOf('"npm:@gotgenes/pi-permission-system"'));
+  assert.match(piNix, /extensions = \[ \];/);
   assert.match(piNix, /prompts = \[ "~\/\.claude\/commands" \];/);
   assert.match(piNix, /piYoloPermission = \{\s*"\*" = "allow";/);
   assert.match(piNix, /yoloMode = isYolo;/);

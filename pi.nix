@@ -46,7 +46,9 @@ let
     "@earendil-works/pi-coding-agent"
     "beautiful-mermaid"
   ];
-  piPackages = lib.optionals mcpEnabled [
+  piPackages = [
+    "${./readonly-bash-classifier.js}"
+  ] ++ lib.optionals mcpEnabled [
     "npm:pi-mcp-adapter"
   ] ++ [
     "npm:@gotgenes/pi-permission-system"
@@ -80,7 +82,7 @@ let
     npmCommand = piNpmCommand;
     skills = [ "~/.claude/skills" ];
     prompts = [ "~/.claude/commands" ];
-    extensions = [ "${./readonly-bash-classifier.js}" ];
+    extensions = [ ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
     defaultProvider = "openai-codex";
@@ -163,7 +165,7 @@ let
   '';
 
   installPiActivation = ''
-    export PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.curl pkgs.wget ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.curl pkgs.wget pkgs.git ]}:$PATH"
     export npm_config_prefix="$HOME/.npm-global"
     npm_bin="$npm_config_prefix/bin"
     mkdir -p "$npm_bin"
