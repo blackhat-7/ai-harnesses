@@ -110,6 +110,8 @@ let
     get_search_content = "allow";
     code_search = "allow";
     todo = "allow";
+    workflow = "allow";
+    structured_output = "allow";
     subagent = "allow";
     get_subagent_result = "allow";
     steer_subagent = "allow";

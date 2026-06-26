@@ -278,6 +278,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /yoloMode = isYolo;/);
   assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
+  assert.match(piNix, /workflow = "allow";/);
+  assert.match(piNix, /structured_output = "allow";/);
   assert.match(piNix, /get_subagent_result = "allow";/);
   assert.match(piNix, /steer_subagent = "allow";/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
