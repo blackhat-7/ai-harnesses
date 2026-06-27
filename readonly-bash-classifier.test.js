@@ -265,8 +265,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
   assert.match(piNix, /patch-pi-subagents-mouse\.js/);
   assert.match(piNix, /restore-pi-subagents-agent-widget\.js/);
-  assert.match(piNix, /patch-pi-subagents-open-transcript\.js/);
-  assert.match(piNix, /"\$\{\.\/files\/pi-subagents-click\.js\}"/);
+  assert.doesNotMatch(piNix, /patch-pi-subagents-open-transcript\.js/);
+  assert.doesNotMatch(piNix, /"\$\{\.\/files\/pi-subagents-click\.js\}"/);
   assert.doesNotMatch(piNix, /patch-pi-subagents-widget-click\.js/);
   assert.doesNotMatch(piNix, /patch-pi-subagents-click\.js/);
   assert.doesNotMatch(piNix, /patch-pi-subagents-footer-click\.js/);
