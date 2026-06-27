@@ -177,6 +177,7 @@ let
     npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
     ${writePiSettings}
     "$npm_bin/pi" update --extensions
+    ${pkgs.nodejs_24}/bin/node ${./files/patch-pi-subagents-mouse.js}
   '';
 in
 {
