@@ -272,7 +272,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.doesNotMatch(piNix, /patchPiPackage/);
   assert.match(piNix, /helpers\.writeJson "\$HOME\/\.pi\/agent\/subagents\.json" piSubagentsSettings/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js" "\$HOME\/\.pi\/agent\/pi-permissions\.jsonc" "\$HOME\/\.pi\/agent\/extensions\/subagent\/config\.json"/);
-  assert.match(piNix, /extensions = \[ "\$\{\.\/readonly-bash-classifier\.js\}" \];/);
+  assert.match(piNix, /"\$\{\.\/readonly-bash-classifier\.js\}"/);
+  assert.match(piNix, /"\$\{\.\/files\/pi-mouse\.js\}"/);
   assert.match(piNix, /prompts = \[ "~\/\.claude\/commands" \];/);
   assert.match(piNix, /piYoloPermission = \{\s*"\*" = "allow";/);
   assert.match(piNix, /yoloMode = isYolo;/);

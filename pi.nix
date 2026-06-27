@@ -80,7 +80,10 @@ let
     npmCommand = piNpmCommand;
     skills = [ "~/.claude/skills" ];
     prompts = [ "~/.claude/commands" ];
-    extensions = [ "${./readonly-bash-classifier.js}" ];
+    extensions = [
+      "${./readonly-bash-classifier.js}"
+      "${./files/pi-mouse.js}"
+    ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
     defaultProvider = "openai-codex";
