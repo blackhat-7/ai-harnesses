@@ -1,7 +1,6 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { restoreKnownPatch } = require("./restore-pi-subagents-agent-widget.js");
 
 const ROOT = path.join(os.homedir(), ".pi/agent/npm/node_modules/@gotgenes/pi-subagents/src");
 const WIDGET_TARGET = path.join(ROOT, "ui/agent-widget.ts");
@@ -312,10 +311,9 @@ function applyEdits(source, edits) {
 
 function patchWidgetSource(source) {
   if (source.includes(PATCH_MARKER)) return { source, status: "already-patched" };
-  const restored = restoreKnownPatch(source);
-  const result = applyEdits(restored, widgetEdits);
-  if (result.missing.length > 0) return { source: restored, status: "skipped", missing: result.missing };
-  return { source: result.source, status: restored === source ? "patched" : "restored-and-patched" };
+  const result = applyEdits(source, widgetEdits);
+  if (result.missing.length > 0) return { source, status: "skipped", missing: result.missing };
+  return { source: result.source, status: "patched" };
 }
 
 function patchIndexSource(source) {
