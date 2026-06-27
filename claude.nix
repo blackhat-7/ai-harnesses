@@ -5,18 +5,9 @@
   ...
 }:
 let
-  isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   helpers = import ./helpers.nix { inherit pkgs; };
   mcpData = import ./mcp-servers.nix { inherit lib config; };
   isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
-
-  notifyScript =
-    if isDarwin then
-      pkgs.replaceVars ./files/claude-notify-darwin.sh {
-        terminalNotifier = "${pkgs.terminal-notifier}/bin/terminal-notifier";
-      }
-    else
-      ./files/claude-notify-linux.sh;
 
   hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
   claudeMcpAllows =
@@ -78,36 +69,14 @@ let
       "pyright-lsp@claude-plugins-official" = true;
       "gopls-lsp@claude-plugins-official" = true;
     };
-    hooks = builtins.listToAttrs (
-      map
-        (event: {
-          name = event;
-          value = [
-            {
-              matcher = "";
-              hooks = [
-                {
-                  type = "command";
-                  command = ''bash "$HOME/.claude/notify.sh"'';
-                }
-              ];
-            }
-          ];
-        })
-        [
-          "Notification"
-          "Stop"
-        ]
-    );
   };
 in
 {
   home.activation.writeClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/.claude"
-    ${helpers.copyFile "$HOME/.claude/statusline-command.sh" ./files/claude-statusline.sh}
+    ${helpers.copyFile "$HOME/.claude/statusline-command.sh" ./scripts/claude-statusline.sh}
     chmod +x "$HOME/.claude/statusline-command.sh"
-    ${helpers.copyFile "$HOME/.claude/notify.sh" notifyScript}
-    chmod +x "$HOME/.claude/notify.sh"
+    rm -f "$HOME/.claude/notify.sh"
     ${helpers.writeJson "$HOME/.claude/settings.json" claudeSettings}
     ${helpers.writeJson "$HOME/.claude.json" { mcpServers = mcpData.mcpServers; }}
   '';

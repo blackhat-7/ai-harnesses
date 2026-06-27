@@ -82,7 +82,7 @@ let
     prompts = [ "~/.claude/commands" ];
     extensions = [
       "${./readonly-bash-classifier.js}"
-      "${./files/pi-mouse.js}"
+      "${./patches/pi-mouse.js}"
     ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
@@ -177,7 +177,7 @@ let
     npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
     ${writePiSettings}
     "$npm_bin/pi" update --extensions
-    ${pkgs.nodejs_24}/bin/node ${./files/patch-pi-subagents-mouse.js}
+    ${pkgs.nodejs_24}/bin/node ${./patches/patch-pi-subagents-mouse.js}
   '';
 in
 {
@@ -197,7 +197,7 @@ in
     ${writePiSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
-    ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./files/chutes-provider.ts}
+    ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}
     ${helpers.writeJson "$HOME/.pi/agent/keybindings.json" piKeybindings}
     ${helpers.writeJson "$HOME/.pi/web-search.json" piWebSearchConfig}
   '';

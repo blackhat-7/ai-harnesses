@@ -95,6 +95,6 @@ in
     ${helpers.writeJson "$HOME/.config/opencode/opencode.json" opencodeConfig}
     ${helpers.writeJson "$HOME/.config/opencode/package.json" opencodePackageJson}
     ${helpers.copyFile "$HOME/.config/opencode/plugins/readonly-bash.js" ./readonly-bash-opencode-plugin.mjs}
-    ${helpers.copyFile "$HOME/.config/opencode/agent/reviewer.md" ./files/opencode-reviewer.md}
+    ${helpers.copyFile "$HOME/.config/opencode/agent/reviewer.md" ./patches/opencode-reviewer.md}
   '';
 }

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const piMouse = require("../files/pi-mouse.js");
+const piMouse = require("../patches/pi-mouse.js");
 
 test("parseWheel handles SGR vertical wheel events", () => {
   assert.deepEqual(piMouse.parseWheel("\x1b[<64;10;5M"), {
