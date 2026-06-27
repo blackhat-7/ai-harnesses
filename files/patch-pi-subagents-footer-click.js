@@ -7,7 +7,8 @@ const DEFAULT_TARGET = path.join(
   ".pi/agent/npm/node_modules/@gotgenes/pi-subagents/src/ui/agent-widget.ts",
 );
 
-const PATCH_MARKER = "private openFooterAgentSession";
+const PATCH_MARKER = "private agentForWidgetLine";
+const FOOTER_ONLY_MARKER = "private openFooterAgentSession";
 const LEGACY_MARKER = "private clickedLine(y: number)";
 
 const legacyClickEdits = [
@@ -250,7 +251,7 @@ import { AgentTypeRegistry } from "#src/config/agent-types";
     oldText: `import { ERROR_STATUSES, type Theme } from "#src/ui/display";
 import { renderWidgetLines, type WidgetAgent } from "#src/ui/widget-renderer";
 `,
-    newText: `import { ERROR_STATUSES, type Theme } from "#src/ui/display";
+    newText: `import { ERROR_STATUSES, getDisplayName, type Theme } from "#src/ui/display";
 import { liveSource } from "#src/ui/session-navigation";
 import { TranscriptOverlay, type SessionNavigatorUI } from "#src/ui/session-navigator";
 import { renderWidgetLines, type WidgetAgent } from "#src/ui/widget-renderer";
@@ -363,9 +364,54 @@ function stripAnsi(text: string): string {
 
   private handleFooterMouse(event: PiMouseEvent): void {
     if (event.wheel || (event.button & 3) !== 0 || event.raw?.endsWith("m")) return;
+    const widgetAgent = this.agentForWidgetLine(event.y);
+    if (widgetAgent) {
+      this.openFooterAgentSession(widgetAgent);
+      return;
+    }
     if (!this.isFooterStatusLine(event.y)) return;
-    const agent = this.currentFooterAgent();
-    if (agent) this.openFooterAgentSession(agent);
+    const footerAgent = this.currentFooterAgent();
+    if (footerAgent) this.openFooterAgentSession(footerAgent);
+  }
+
+  private agentForWidgetLine(y: number): Subagent | undefined {
+    const line = this.visibleLine(y);
+    if (!line) return undefined;
+    const clickedName = this.readyWidgetAgents()
+      .map((agent) => getDisplayName(agent.type, this.registry))
+      .find((name) => line.includes(name));
+    if (!clickedName) return undefined;
+
+    const visible = this.visibleLines();
+    const clickedIndex = this.visibleLineIndex(y);
+    const agentsBeforeClick = visible.slice(0, clickedIndex + 1).filter((candidate) => candidate.includes(clickedName)).length;
+    return this.readyWidgetAgents()
+      .filter((agent) => getDisplayName(agent.type, this.registry) === clickedName)
+      [Math.max(0, agentsBeforeClick - 1)];
+  }
+
+  private readyWidgetAgents(): Subagent[] {
+    const agents = this.listBackgroundAgents().filter((agent) => agent.isSessionReady());
+    const finished = agents.filter((agent) => agent.status !== "running" && agent.status !== "queued" && agent.completedAt && this.shouldShowFinished(agent.id, agent.status));
+    const running = agents.filter((agent) => agent.status === "running");
+    return [...finished, ...running];
+  }
+
+  private visibleLine(y: number): string | undefined {
+    return this.visibleLines()[this.visibleLineIndex(y)];
+  }
+
+  private visibleLineIndex(y: number): number {
+    return y - 1;
+  }
+
+  private visibleLines(): string[] {
+    const previousLines = Array.isArray(this.tui?.previousLines) ? this.tui.previousLines as string[] : [];
+    const rows = Number(this.tui?.terminal?.rows) || previousLines.length;
+    const viewportTop = Number.isFinite(this.tui?.previousViewportTop)
+      ? Number(this.tui.previousViewportTop)
+      : Math.max(0, previousLines.length - rows);
+    return previousLines.slice(viewportTop, viewportTop + rows).map(stripAnsi);
   }
 
   private isFooterStatusLine(y: number): boolean {
@@ -450,6 +496,82 @@ function stripAnsi(text: string): string {
   },
 ];
 
+const footerUpgradeEdits = [
+  {
+    oldText: `import { ERROR_STATUSES, type Theme } from "#src/ui/display";
+import { liveSource } from "#src/ui/session-navigation";
+`,
+    newText: `import { ERROR_STATUSES, getDisplayName, type Theme } from "#src/ui/display";
+import { liveSource } from "#src/ui/session-navigation";
+`,
+  },
+  {
+    oldText: `  private handleFooterMouse(event: PiMouseEvent): void {
+    if (event.wheel || (event.button & 3) !== 0 || event.raw?.endsWith("m")) return;
+    if (!this.isFooterStatusLine(event.y)) return;
+    const agent = this.currentFooterAgent();
+    if (agent) this.openFooterAgentSession(agent);
+  }
+
+  private isFooterStatusLine(y: number): boolean {
+`,
+    newText: `  private handleFooterMouse(event: PiMouseEvent): void {
+    if (event.wheel || (event.button & 3) !== 0 || event.raw?.endsWith("m")) return;
+    const widgetAgent = this.agentForWidgetLine(event.y);
+    if (widgetAgent) {
+      this.openFooterAgentSession(widgetAgent);
+      return;
+    }
+    if (!this.isFooterStatusLine(event.y)) return;
+    const footerAgent = this.currentFooterAgent();
+    if (footerAgent) this.openFooterAgentSession(footerAgent);
+  }
+
+  private agentForWidgetLine(y: number): Subagent | undefined {
+    const line = this.visibleLine(y);
+    if (!line) return undefined;
+    const clickedName = this.readyWidgetAgents()
+      .map((agent) => getDisplayName(agent.type, this.registry))
+      .find((name) => line.includes(name));
+    if (!clickedName) return undefined;
+
+    const visible = this.visibleLines();
+    const clickedIndex = this.visibleLineIndex(y);
+    const agentsBeforeClick = visible.slice(0, clickedIndex + 1).filter((candidate) => candidate.includes(clickedName)).length;
+    return this.readyWidgetAgents()
+      .filter((agent) => getDisplayName(agent.type, this.registry) === clickedName)
+      [Math.max(0, agentsBeforeClick - 1)];
+  }
+
+  private readyWidgetAgents(): Subagent[] {
+    const agents = this.listBackgroundAgents().filter((agent) => agent.isSessionReady());
+    const finished = agents.filter((agent) => agent.status !== "running" && agent.status !== "queued" && agent.completedAt && this.shouldShowFinished(agent.id, agent.status));
+    const running = agents.filter((agent) => agent.status === "running");
+    return [...finished, ...running];
+  }
+
+  private visibleLine(y: number): string | undefined {
+    return this.visibleLines()[this.visibleLineIndex(y)];
+  }
+
+  private visibleLineIndex(y: number): number {
+    return y - 1;
+  }
+
+  private visibleLines(): string[] {
+    const previousLines = Array.isArray(this.tui?.previousLines) ? this.tui.previousLines as string[] : [];
+    const rows = Number(this.tui?.terminal?.rows) || previousLines.length;
+    const viewportTop = Number.isFinite(this.tui?.previousViewportTop)
+      ? Number(this.tui.previousViewportTop)
+      : Math.max(0, previousLines.length - rows);
+    return previousLines.slice(viewportTop, viewportTop + rows).map(stripAnsi);
+  }
+
+  private isFooterStatusLine(y: number): boolean {
+`,
+  },
+];
+
 function replaceOnce(source, oldText, newText) {
   const first = source.indexOf(oldText);
   if (first === -1) return { source, missing: true };
@@ -480,6 +602,11 @@ function patchSource(source) {
   const legacy = revertLegacyClickPatch(source);
   if (legacy.missing.length > 0) return { source, status: "skipped", missing: legacy.missing };
   if (legacy.source.includes(PATCH_MARKER)) return { source: legacy.source, status: legacy.reverted ? "reverted-already-patched" : "already-patched" };
+  if (legacy.source.includes(FOOTER_ONLY_MARKER)) {
+    const upgrade = applyEdits(legacy.source, footerUpgradeEdits);
+    if (upgrade.missing.length > 0) return { source: legacy.source, status: "skipped", missing: upgrade.missing };
+    return { source: upgrade.source, status: legacy.reverted ? "reverted-and-patched" : "upgraded" };
+  }
 
   const result = applyEdits(legacy.source, footerEdits);
   if (result.missing.length > 0) return { source: legacy.source, status: "skipped", missing: result.missing };
@@ -494,7 +621,7 @@ function patchFile(file = DEFAULT_TARGET, log = console.warn) {
 
   const source = fs.readFileSync(file, "utf8");
   const result = patchSource(source);
-  if (result.status === "patched" || result.status === "reverted-and-patched" || result.status === "reverted-already-patched") {
+  if (result.status === "patched" || result.status === "upgraded" || result.status === "reverted-and-patched" || result.status === "reverted-already-patched") {
     fs.writeFileSync(file, result.source);
     log(`[ai-harnesses] patched pi-subagents footer click-to-open`);
   } else if (result.status === "skipped") {

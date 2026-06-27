@@ -108,6 +108,7 @@ test("patchSource adds footer-only click-to-open support", () => {
   const result = patchSource(source);
   assert.equal(result.status, "patched");
   assert.match(result.source, /click to view/);
+  assert.match(result.source, /private agentForWidgetLine\(y: number\)/);
   assert.match(result.source, /private isFooterStatusLine\(y: number\)/);
   assert.match(result.source, /private openFooterAgentSession\(agent: Subagent\)/);
   assert.match(result.source, /TranscriptOverlay/);
@@ -141,5 +142,6 @@ test("patchSource can replace the previously bad widget click patch when install
   const result = patchSource(fs.readFileSync(installed, "utf8"));
   assert.notEqual(result.status, "skipped");
   assert.match(result.source, /click to view/);
+  assert.match(result.source, /private agentForWidgetLine\(y: number\)/);
   assert.doesNotMatch(result.source, /private clickedLine\(y: number\)/);
 });
