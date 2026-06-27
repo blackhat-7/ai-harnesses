@@ -179,6 +179,7 @@ let
     "$npm_bin/pi" update --extensions
     ${pkgs.nodejs_24}/bin/node ${./files/patch-pi-subagents-mouse.js}
     ${pkgs.nodejs_24}/bin/node ${./files/restore-pi-subagents-agent-widget.js}
+    ${pkgs.nodejs_24}/bin/node ${./files/patch-pi-subagents-widget-click.js}
   '';
 in
 {
