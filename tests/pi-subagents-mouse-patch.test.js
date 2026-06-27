@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { patchFile, patchSource } = require("./files/patch-pi-subagents-mouse.js");
+const { patchFile, patchSource } = require("../files/patch-pi-subagents-mouse.js");
 
 const source = `export interface SessionNavigatorUI {
   select(title: string, options: string[]): Promise<string | undefined>;

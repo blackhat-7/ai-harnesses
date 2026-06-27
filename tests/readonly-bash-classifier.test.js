@@ -4,10 +4,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createReadonlyBashClassifier, execPrepareDefault, expandPath, firstShellWord } = require("./readonly-bash-classifier.js");
+const repoRoot = path.join(__dirname, "..");
+const { createReadonlyBashClassifier, execPrepareDefault, expandPath, firstShellWord } = require(path.join(repoRoot, "readonly-bash-classifier.js"));
 
 async function loadOpenCodePlugin() {
-  return import("./readonly-bash-opencode-plugin.mjs");
+  return import(path.join(repoRoot, "readonly-bash-opencode-plugin.mjs"));
 }
 
 test("blocks direct runner when first runnable shell word is runner path", async () => {
@@ -235,12 +236,12 @@ test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () =
 });
 
 test("standalone flake exports Home Manager module and keeps unknown bash on ask", () => {
-  const defaultNix = fs.readFileSync(path.join(__dirname, "default.nix"), "utf8");
-  const piNix = fs.readFileSync(path.join(__dirname, "pi.nix"), "utf8");
-  const claudeNix = fs.readFileSync(path.join(__dirname, "claude.nix"), "utf8");
-  const opencodeNix = fs.readFileSync(path.join(__dirname, "opencode.nix"), "utf8");
-  const mcpServersNix = fs.readFileSync(path.join(__dirname, "mcp-servers.nix"), "utf8");
-  const flakeNix = fs.readFileSync(path.join(__dirname, "flake.nix"), "utf8");
+  const defaultNix = fs.readFileSync(path.join(repoRoot, "default.nix"), "utf8");
+  const piNix = fs.readFileSync(path.join(repoRoot, "pi.nix"), "utf8");
+  const claudeNix = fs.readFileSync(path.join(repoRoot, "claude.nix"), "utf8");
+  const opencodeNix = fs.readFileSync(path.join(repoRoot, "opencode.nix"), "utf8");
+  const mcpServersNix = fs.readFileSync(path.join(repoRoot, "mcp-servers.nix"), "utf8");
+  const flakeNix = fs.readFileSync(path.join(repoRoot, "flake.nix"), "utf8");
 
   assert.match(flakeNix, /homeManagerModules\.default/);
   assert.match(flakeNix, /_module\.args\.aiHarnessesInputs = inputs;/);
@@ -264,7 +265,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /pkgs\.git-lfs/);
   assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
   assert.match(piNix, /patch-pi-subagents-mouse\.js/);
-  assert.match(piNix, /restore-pi-subagents-agent-widget\.js/);
+  assert.doesNotMatch(piNix, /restore-pi-subagents-agent-widget\.js/);
   assert.doesNotMatch(piNix, /patch-pi-subagents-open-transcript\.js/);
   assert.doesNotMatch(piNix, /"\$\{\.\/files\/pi-subagents-click\.js\}"/);
   assert.doesNotMatch(piNix, /patch-pi-subagents-widget-click\.js/);
