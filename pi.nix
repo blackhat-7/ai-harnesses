@@ -60,10 +60,10 @@ let
     "npm:pi-intercom"
     "npm:pi-autoname"
     "npm:pi-bar"
-    "npm:pi-vim"
     "npm:pi-ffmpeg"
     "npm:pi-claude-style-tools"
     "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
+    "npm:pi-vim"
   ];
 
   readonlyBashConfig = {
