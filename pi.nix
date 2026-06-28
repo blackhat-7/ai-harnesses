@@ -62,7 +62,7 @@ let
     "npm:pi-bar"
     "npm:pi-vim"
     "npm:pi-ffmpeg"
-    "npm:pi-tool-display"
+    "npm:pi-claude-style-tools"
     "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
   ];
 
