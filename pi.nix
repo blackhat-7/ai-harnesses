@@ -53,7 +53,7 @@ let
     "npm:pi-web-access"
     "npm:@gotgenes/pi-subagents"
     "npm:pi-mermaid"
-    # "npm:@juicesharp/rpiv-todo"
+    "npm:@juicesharp/rpiv-todo"
     "npm:@ifi/oh-pi-themes"
     "npm:pi-opencode-theme"
     "npm:pi-rewind"
