@@ -49,7 +49,15 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Pi config lives in `pi.nix`.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
 - Remote MCP API keys are referenced through environment variables such as `GITHUB_MCP_TOKEN` and `AFTERSHOOT_MCP_API_KEY`.
+- Atlassian/Jira/Confluence uses the official Atlassian Rovo MCP endpoint (`https://mcp.atlassian.com/v1/mcp/authv2`) with OAuth. Pi requests only Jira/Confluence read/search scopes and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
+
+## Atlassian MCP auth and read-only setup
+
+1. In **Atlassian Administration > Rovo > Rovo MCP server**, allow only trusted client domains, keep **OAuth 2.1** enabled, and turn **API token** auth off unless you explicitly need headless service auth.
+2. In the **Permissions** tab, allow **Read** and **Search** only for Jira/Confluence; block **Write**. Use **Edit details** if you need per-app control, and do not auto-allow future write permissions.
+3. Apply this Home Manager module so the `atlassian` MCP server is written.
+4. In Pi, run `/mcp-auth atlassian` or `mcp({ action: "auth-start", server: "atlassian" })`, open the URL, sign in, then complete with `mcp({ action: "auth-complete", server: "atlassian", args: '{"redirectUrl":"PASTE_REDIRECT_URL"}' })`.
 
 ## readonly-bash auto-approval
 

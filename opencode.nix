@@ -9,10 +9,12 @@ let
   mcpData = import ./mcp-servers.nix { inherit lib config; };
   isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
 
+  hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
   opencodeEnabled = {
     bestiary = true;
     github = true;
     aftershoot-mcp = true;
+    atlassian = true;
   };
   opencodeMcpServer =
     name: v:
@@ -34,12 +36,23 @@ let
       }
       // lib.optionalAttrs (v ? env) { environment = v.env; };
 
-  opencodeMcpPermission = builtins.listToAttrs (
-    map (name: {
-      name = "${name}_*";
-      value = "allow";
-    }) (builtins.attrNames mcpData.mcpServers)
-  );
+  opencodeMcpPermission =
+    builtins.listToAttrs (
+      map (name: {
+        name = "${name}_*";
+        value = "allow";
+      }) (builtins.filter (name: name != "atlassian") (builtins.attrNames mcpData.mcpServers))
+    )
+    // lib.optionalAttrs (hasMcp "atlassian") (builtins.listToAttrs (
+      (map (tool: {
+        name = "atlassian_${tool}";
+        value = "allow";
+      }) mcpData.atlassianReadOnlyTools)
+      ++ (map (tool: {
+        name = "atlassian_${tool}";
+        value = "deny";
+      }) mcpData.atlassianWriteTools)
+    ));
   opencodeYoloPermission = {
     "*" = "allow";
     bash."*" = "allow";

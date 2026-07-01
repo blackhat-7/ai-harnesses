@@ -16,6 +16,9 @@ let
     ++ lib.optionals (hasMcp "chrome-devtools") [ "mcp__chrome-devtools" ]
     ++ lib.optionals (hasMcp "github") [ "mcp__github" ]
     ++ lib.optionals (hasMcp "playwright") [ "mcp__playwright" ]
+    ++ lib.optionals (hasMcp "atlassian") (
+      map (tool: "mcp__atlassian__${tool}") mcpData.atlassianReadOnlyTools
+    )
     ++ lib.optionals (hasMcp "linear") [
       "mcp__linear__linear_getViewer"
       "mcp__linear__linear_getOrganization"
@@ -59,7 +62,9 @@ let
             "WebFetch"
             "WebSearch"
           ] ++ claudeMcpAllows;
-          deny = [ ];
+          deny = lib.optionals (hasMcp "atlassian") (
+            map (tool: "mcp__atlassian__${tool}") mcpData.atlassianWriteTools
+          );
           ask = [
             "Edit"
             "Write"

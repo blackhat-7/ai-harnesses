@@ -7,6 +7,82 @@ let
   mcpEnable = config.aiHarnesses.mcp.enable or true;
   selectedServers = config.aiHarnesses.mcp.enabledServers or null;
 
+  atlassianReadOnlyTools = [
+    "atlassianUserInfo"
+    "getAccessibleAtlassianResources"
+    "getJiraIssue"
+    "getJiraIssueRemoteIssueLinks"
+    "getJiraIssueTypeMetaWithFields"
+    "getJiraProjectIssueTypesMetadata"
+    "getIssueLinkTypes"
+    "getTransitionsForJiraIssue"
+    "getVisibleJiraProjects"
+    "lookupJiraAccountId"
+    "searchJiraIssuesUsingJql"
+    "getConfluencePage"
+    "getConfluencePageDescendants"
+    "getConfluencePageFooterComments"
+    "getConfluencePageInlineComments"
+    "getConfluenceCommentChildren"
+    "getConfluenceSpaces"
+    "getPagesInConfluenceSpace"
+    "searchConfluenceUsingCql"
+  ];
+
+  atlassianWriteTools = [
+    "addCommentToJiraIssue"
+    "addWorklogToJiraIssue"
+    "createJiraIssue"
+    "editJiraIssue"
+    "transitionJiraIssue"
+    "createConfluencePage"
+    "updateConfluencePage"
+    "createConfluenceFooterComment"
+    "createConfluenceInlineComment"
+    "addTeamworkGraphContext"
+    "updateJsmOpsAlert"
+    "createCompassComponent"
+    "createCompassComponentRelationship"
+    "createCompassCustomFieldDefinition"
+  ];
+
+  atlassianExcludedTools = atlassianWriteTools ++ [
+    "getJsmOpsAlerts"
+    "getJsmOpsScheduleInfo"
+    "getJsmOpsTeamInfo"
+    "bitbucketWorkspace"
+    "bitbucketRepository"
+    "bitbucketUser"
+    "bitbucketDeployment"
+    "bitbucketPullRequest"
+    "bitbucketRepoContent"
+    "bitbucketPipeline"
+    "bitbucketEnvironment"
+    "getTeamworkGraphContext"
+    "getTeamworkGraphObject"
+    "searchAtlassian"
+    "fetchAtlassian"
+    "getCompassComponent"
+    "getCompassComponents"
+    "getCompassComponentActivityEvents"
+    "getCompassComponentLabels"
+    "getCompassComponentTypes"
+    "getCompassCustomFieldDefinitions"
+    "getCompassComponentsOwnedByMyTeams"
+  ];
+
+  atlassianReadOnlyScopes = [
+    "read:me"
+    "read:account"
+    "read:jira-work"
+    "search:jira-work"
+    "read:page:confluence"
+    "read:hierarchical-content:confluence"
+    "read:comment:confluence"
+    "read:space:confluence"
+    "search:confluence"
+  ];
+
   allMcpServers = {
     bestiary = {
       command = "uvx";
@@ -39,6 +115,10 @@ let
       headers = {
         Authorization = "Bearer \${AFTERSHOOT_MCP_API_KEY}";
       };
+    };
+    atlassian = {
+      type = "http";
+      url = "https://mcp.atlassian.com/v1/mcp/authv2";
     };
     playwright = {
       command = "npx";
@@ -89,9 +169,25 @@ let
       headers = builtins.removeAttrs (base.headers or { }) [ "Authorization" ];
       auth = "bearer";
       bearerTokenEnv = "AFTERSHOOT_MCP_API_KEY";
+    }
+    // lib.optionalAttrs (name == "atlassian") {
+      auth = "oauth";
+      oauth = {
+        scope = builtins.concatStringsSep " " atlassianReadOnlyScopes;
+        clientName = "ai-harnesses read-only Atlassian MCP";
+      };
+      exposeResources = false;
+      directTools = false;
+      excludeTools = atlassianExcludedTools;
     };
 in
 {
-  inherit mcpServers;
+  inherit
+    atlassianExcludedTools
+    atlassianReadOnlyScopes
+    atlassianReadOnlyTools
+    atlassianWriteTools
+    mcpServers
+    ;
   piMcpServers = builtins.mapAttrs piMcpServer mcpServers;
 }
