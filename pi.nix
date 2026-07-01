@@ -117,6 +117,7 @@ let
     code_search = "allow";
     memory = "allow";
     memory_search = "allow";
+    session_search = "allow";
     todo = "allow";
     workflow = "allow";
     structured_output = "allow";
