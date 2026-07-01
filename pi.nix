@@ -171,7 +171,7 @@ let
   '';
 
   installPiActivation = ''
-    export PATH="${lib.makeBinPath [ pkgs.nodejs_24 pkgs.curl pkgs.wget pkgs.git pkgs.git-lfs ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.nodejs_26 pkgs.curl pkgs.wget pkgs.git pkgs.git-lfs ]}:$PATH"
     export npm_config_prefix="$HOME/.npm-global"
     npm_bin="$npm_config_prefix/bin"
     mkdir -p "$npm_bin"
@@ -179,7 +179,7 @@ let
     npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
     ${writePiSettings}
     "$npm_bin/pi" update --extensions
-    ${pkgs.nodejs_24}/bin/node ${./patches/patch-pi-subagents-mouse.js}
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
   '';
 in
 {
