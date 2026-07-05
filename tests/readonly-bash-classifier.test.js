@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const repoRoot = path.join(__dirname, "..");
 const { createReadonlyBashClassifier, execPrepareDefault, expandPath, firstShellWord } = require(path.join(repoRoot, "readonly-bash-classifier.js"));
+const { PATCH_MARKER, patchSource: patchClaudeStyleCodeBlocksSource } = require(path.join(repoRoot, "patches/patch-pi-claude-style-code-blocks.js"));
 
 async function loadOpenCodePlugin() {
   return import(path.join(repoRoot, "readonly-bash-opencode-plugin.mjs"));
@@ -265,6 +266,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /pkgs\.git-lfs/);
   assert.match(piNix, /"\$npm_bin\/pi" update --extensions/);
   assert.match(piNix, /patch-pi-subagents-mouse\.js/);
+  assert.match(piNix, /patch-pi-claude-style-code-blocks\.js/);
   assert.doesNotMatch(piNix, /restore-pi-subagents-agent-widget\.js/);
   assert.doesNotMatch(piNix, /patch-pi-subagents-open-transcript\.js/);
   assert.doesNotMatch(piNix, /"\$\{\.\/files\/pi-subagents-click\.js\}"/);
@@ -312,6 +314,26 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(opencodeNix, /bash\."\*" = "allow";/);
   assert.match(opencodeNix, /bash\."\*" = "ask";/);
   assert.match(opencodeNix, /helpers\.copyFile "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js" \.\/readonly-bash-opencode-plugin\.mjs/);
+});
+
+test("pi-claude-style-tools patch disables code block boxes only", () => {
+  const source = [
+    "function processRenderedCodeBlocks(lines, width) {",
+    "\t\t\tconst hideBox = PLAIN_FENCE_LANGS.has(language.trim().toLowerCase());",
+    "\t\t\tif (hideBox) {",
+    "\t\t\t\tresult.push(...body);",
+    "\t\t\t} else if (canBox && (body.length > 0 || language.trim())) {",
+    "\t\t\t\tresult.push(...boxRenderedCodeBlock(body, language, width));",
+    "\t\t\t}",
+    "}",
+  ].join("\n") + "\n";
+
+  const patched = patchClaudeStyleCodeBlocksSource(source);
+  assert.equal(patched.status, "patched");
+  assert.match(patched.source, new RegExp(PATCH_MARKER));
+  assert.match(patched.source, /const hideBox = true;/);
+  assert.match(patched.source, /boxRenderedCodeBlock\(body, language, width\)/);
+  assert.equal(patchClaudeStyleCodeBlocksSource(patched.source).status, "already-patched");
 });
 
 test("firstShellWord parses quoted and escaped runner paths", () => {

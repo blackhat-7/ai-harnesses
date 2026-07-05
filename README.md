@@ -65,7 +65,7 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Pi loads this repo's `readonly-bash-classifier.js` through `settings.json`; activation removes any stale auto-discovered copy under `~/.pi/agent/extensions`.
 - opencode loads a generated local plugin at `~/.config/opencode/plugins/readonly-bash.js`, copied from `readonly-bash-opencode-plugin.mjs`.
 - Pi allows exactly the Nix-store `readonly-bash-runner` command. Unknown Pi bash stays on ask.
-- Pi uses `pi-claude-style-tools` for grouped compact native tool rendering. The extension is configured with transparent tool chrome (`toolBackground = "transparent"`) and grouped rows (`groupToolCalls = true`) to avoid copy-unfriendly outer borders while keeping compact grouping.
+- Pi uses `pi-claude-style-tools` for grouped compact native tool rendering. The extension is configured with transparent tool chrome (`toolBackground = "transparent"`) and grouped rows (`groupToolCalls = true`) to avoid copy-unfriendly outer borders while keeping compact grouping. Activation also patches the extension's language-tagged code-fence boxing off so copied code does not include border pipes.
 - opencode keeps bash commands unchanged in the transcript; its plugin auto-replies once to `permission.asked` only when `readonly-bash classify` marks every requested bash pattern read-only. Unknown opencode bash stays on ask.
 
 ## Generated files

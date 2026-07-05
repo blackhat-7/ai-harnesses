@@ -203,6 +203,7 @@ let
     ${writePiSettings}
     ${writePiClaudeStyleToolsSettings}
     "$npm_bin/pi" update --extensions
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-style-code-blocks.js}
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
   '';
 in
@@ -224,6 +225,7 @@ in
     ${writePiClaudeStyleToolsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-style-code-blocks.js}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}
     ${helpers.writeJson "$HOME/.pi/agent/keybindings.json" piKeybindings}
     ${helpers.writeJson "$HOME/.pi/web-search.json" piWebSearchConfig}
