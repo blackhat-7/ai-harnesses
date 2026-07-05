@@ -62,6 +62,7 @@ let
     "npm:pi-bar"
     "npm:pi-ffmpeg"
     "npm:@vanillagreen/pi-tool-renderer"
+    "npm:pi-zentui"
     "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
     "npm:pi-vim"
     "npm:pi-hermes-memory"
