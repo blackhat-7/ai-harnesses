@@ -283,6 +283,10 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"\$\{\.\/readonly-bash-classifier\.js\}"/);
   assert.match(piNix, /"\$\{\.\/patches\/pi-mouse\.js\}"/);
   assert.match(piNix, /prompts = \[ "~\/\.claude\/commands" \];/);
+  assert.match(piNix, /vstack\.extensionManager\.config\."@vanillagreen\/pi-tool-renderer" = \{/);
+  assert.match(piNix, /registerBatchTool = false;/);
+  assert.match(piNix, /stackToolCalls = true;/);
+  assert.match(piNix, /stackChildDisplay = "rows";/);
   assert.match(piNix, /piYoloPermission = \{\s*"\*" = "allow";/);
   assert.match(piNix, /yoloMode = isYolo;/);
   assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);

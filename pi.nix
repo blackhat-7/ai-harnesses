@@ -95,6 +95,11 @@ let
       "chutes/**"
     ];
     compaction.enabled = true;
+    vstack.extensionManager.config."@vanillagreen/pi-tool-renderer" = {
+      registerBatchTool = false;
+      stackToolCalls = true;
+      stackChildDisplay = "rows";
+    };
   };
   piYoloPermission = {
     "*" = "allow";
