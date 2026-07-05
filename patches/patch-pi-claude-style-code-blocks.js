@@ -7,12 +7,20 @@ const DEFAULT_TARGET = path.join(
   ".pi/agent/npm/node_modules/pi-claude-style-tools/extensions/index.ts",
 );
 
-const PATCH_MARKER = "ai-harnesses: disable pi-claude-style-tools code block boxes";
+const PATCH_MARKER = "ai-harnesses: simplify pi-claude-style-tools copy chrome";
 
 const edits = [
   {
     oldText: `\t\t\tconst hideBox = PLAIN_FENCE_LANGS.has(language.trim().toLowerCase());\n`,
     newText: `\t\t\t// ${PATCH_MARKER}\n\t\t\tconst hideBox = true;\n`,
+  },
+  {
+    oldText: `\t\t// " ● " = 1 margin + dot + space = 3 visible chars\n\t\tconst PREFIX_W = 3;\n\t\tif (safeWidth <= PREFIX_W) {\n\t\t\tthis.cachedWidth = width;\n\t\t\tthis.cachedLines = [clampLineWidth(" ● ", safeWidth)];\n\t\t\treturn this.cachedLines;\n\t\t}\n\t\tconst contentWidth = safeWidth - PREFIX_W;\n`,
+    newText: `\t\t// ${PATCH_MARKER}: render assistant markdown flush-left for clean copy/paste.\n\t\tconst contentWidth = safeWidth;\n`,
+  },
+  {
+    oldText: `\t\tlet dotPlaced = false;\n\t\tconst rendered = displayLines.map((line: string) => {\n\t\t\tif (!stripAnsi(line).trim()) return \`   \${line}\`;\n\t\t\tif (isCodeBoxChromeLine(line)) return \`   \${line}\`;\n\t\t\tif (!dotPlaced) {\n\t\t\t\tdotPlaced = true;\n\t\t\t\treturn \` ● \${line}\`;\n\t\t\t}\n\t\t\treturn \`   \${line}\`;\n\t\t}).map((line) => {\n`,
+    newText: `\t\tconst rendered = displayLines.map((line: string) => line).map((line) => {\n`,
   },
 ];
 

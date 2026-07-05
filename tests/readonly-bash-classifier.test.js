@@ -316,7 +316,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(opencodeNix, /helpers\.copyFile "\$HOME\/\.config\/opencode\/plugins\/readonly-bash\.js" \.\/readonly-bash-opencode-plugin\.mjs/);
 });
 
-test("pi-claude-style-tools patch disables code block boxes only", () => {
+test("pi-claude-style-tools patch simplifies copy chrome", () => {
   const source = [
     "function processRenderedCodeBlocks(lines, width) {",
     "\t\t\tconst hideBox = PLAIN_FENCE_LANGS.has(language.trim().toLowerCase());",
@@ -326,12 +326,37 @@ test("pi-claude-style-tools patch disables code block boxes only", () => {
     "\t\t\t\tresult.push(...boxRenderedCodeBlock(body, language, width));",
     "\t\t\t}",
     "}",
+    "class DottedParagraph {",
+    "\trender(width: number): string[] {",
+    "\t\t// \" ● \" = 1 margin + dot + space = 3 visible chars",
+    "\t\tconst PREFIX_W = 3;",
+    "\t\tif (safeWidth <= PREFIX_W) {",
+    "\t\t\tthis.cachedWidth = width;",
+    "\t\t\tthis.cachedLines = [clampLineWidth(\" ● \", safeWidth)];",
+    "\t\t\treturn this.cachedLines;",
+    "\t\t}",
+    "\t\tconst contentWidth = safeWidth - PREFIX_W;",
+    "\t\tlet dotPlaced = false;",
+    "\t\tconst rendered = displayLines.map((line: string) => {",
+    "\t\t\tif (!stripAnsi(line).trim()) return `   ${line}`;",
+    "\t\t\tif (isCodeBoxChromeLine(line)) return `   ${line}`;",
+    "\t\t\tif (!dotPlaced) {",
+    "\t\t\t\tdotPlaced = true;",
+    "\t\t\t\treturn ` ● ${line}`;",
+    "\t\t\t}",
+    "\t\t\treturn `   ${line}`;",
+    "\t\t}).map((line) => {",
+    "\t}",
+    "}",
   ].join("\n") + "\n";
 
   const patched = patchClaudeStyleCodeBlocksSource(source);
   assert.equal(patched.status, "patched");
   assert.match(patched.source, new RegExp(PATCH_MARKER));
   assert.match(patched.source, /const hideBox = true;/);
+  assert.match(patched.source, /const contentWidth = safeWidth;/);
+  assert.match(patched.source, /displayLines\.map\(\(line: string\) => line\)/);
+  assert.doesNotMatch(patched.source, /return ` ● \$\{line\}`/);
   assert.match(patched.source, /boxRenderedCodeBlock\(body, language, width\)/);
   assert.equal(patchClaudeStyleCodeBlocksSource(patched.source).status, "already-patched");
 });
