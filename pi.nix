@@ -61,7 +61,7 @@ let
     "npm:pi-autoname"
     "npm:pi-bar"
     "npm:pi-ffmpeg"
-    "npm:pi-claude-style-tools"
+    "npm:@vanillagreen/pi-tool-renderer"
     "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
     "npm:pi-vim"
     "npm:pi-hermes-memory"
