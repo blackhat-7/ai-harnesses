@@ -61,8 +61,7 @@ let
     "npm:pi-autoname"
     "npm:pi-bar"
     "npm:pi-ffmpeg"
-    "npm:@vanillagreen/pi-tool-renderer"
-    "npm:pi-zentui"
+    "npm:pi-claude-style-tools"
     "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
     "npm:pi-vim"
     "npm:pi-hermes-memory"
@@ -95,11 +94,10 @@ let
       "chutes/**"
     ];
     compaction.enabled = true;
-    vstack.extensionManager.config."@vanillagreen/pi-tool-renderer" = {
-      registerBatchTool = false;
-      stackToolCalls = true;
-      stackChildDisplay = "rows";
-    };
+  };
+  piClaudeStyleToolsSettings = {
+    toolBackground = "transparent";
+    groupToolCalls = true;
   };
   piYoloPermission = {
     "*" = "allow";
@@ -179,6 +177,22 @@ let
     rm -f "$settings_tmp"
   '';
 
+  writePiClaudeStyleToolsSettings = ''
+    settings="$HOME/.pi/settings.json"
+    settings_tmp="$(mktemp)"
+    mkdir -p "$(dirname "$settings")"
+    ${pkgs.jq}/bin/jq . <<'EOF' > "$settings_tmp"
+    ${builtins.toJSON piClaudeStyleToolsSettings}
+    EOF
+    if [[ -f "$settings" ]]; then
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$settings" "$settings_tmp" > "$settings.tmp"
+    else
+      ${pkgs.jq}/bin/jq . "$settings_tmp" > "$settings.tmp"
+    fi
+    mv "$settings.tmp" "$settings"
+    rm -f "$settings_tmp"
+  '';
+
   installPiActivation = ''
     export PATH="${lib.makeBinPath [ pkgs.nodejs_26 pkgs.curl pkgs.wget pkgs.git pkgs.git-lfs ]}:$PATH"
     export npm_config_prefix="$HOME/.npm-global"
@@ -187,6 +201,7 @@ let
 
     npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
     ${writePiSettings}
+    ${writePiClaudeStyleToolsSettings}
     "$npm_bin/pi" update --extensions
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
   '';
@@ -206,6 +221,7 @@ in
     rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js" "$HOME/.pi/agent/pi-permissions.jsonc" "$HOME/.pi/agent/extensions/subagent/config.json"
     ${helpers.writeJson "$HOME/.pi/agent/readonly-bash.json" readonlyBashConfig}
     ${writePiSettings}
+    ${writePiClaudeStyleToolsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}

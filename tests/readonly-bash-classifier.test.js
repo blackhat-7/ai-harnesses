@@ -274,6 +274,9 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /lib\.optionals mcpEnabled \[/);
   assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
   assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
+  assert.match(piNix, /"npm:pi-claude-style-tools"/);
+  assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);
+  assert.doesNotMatch(piNix, /"npm:pi-zentui"/);
   assert.match(piNix, /"git:github\.com\/blackhat-7\/pi-dynamic-workflows@permission-prompts"/);
   assert.doesNotMatch(piNix, /"npm:pi-subagents"/);
   assert.doesNotMatch(piNix, /"npm:pi-permission-system"/);
@@ -283,10 +286,12 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"\$\{\.\/readonly-bash-classifier\.js\}"/);
   assert.match(piNix, /"\$\{\.\/patches\/pi-mouse\.js\}"/);
   assert.match(piNix, /prompts = \[ "~\/\.claude\/commands" \];/);
-  assert.match(piNix, /vstack\.extensionManager\.config\."@vanillagreen\/pi-tool-renderer" = \{/);
-  assert.match(piNix, /registerBatchTool = false;/);
-  assert.match(piNix, /stackToolCalls = true;/);
-  assert.match(piNix, /stackChildDisplay = "rows";/);
+  assert.match(piNix, /piClaudeStyleToolsSettings = \{/);
+  assert.match(piNix, /toolBackground = "transparent";/);
+  assert.match(piNix, /groupToolCalls = true;/);
+  assert.match(piNix, /writePiClaudeStyleToolsSettings/);
+  assert.match(piNix, /settings="\$HOME\/\.pi\/settings\.json"|settings = "\$HOME\/\.pi\/settings\.json"|settings=\"\$HOME\/\.pi\/settings\.json\"/);
+  assert.doesNotMatch(piNix, /registerBatchTool/);
   assert.match(piNix, /piYoloPermission = \{\s*"\*" = "allow";/);
   assert.match(piNix, /yoloMode = isYolo;/);
   assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
