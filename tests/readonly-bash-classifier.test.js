@@ -276,6 +276,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /lib\.optionals mcpEnabled \[/);
   assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
   assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
+  assert.match(piNix, /"\$\{\.\/patches\/pi-permission-dialog-queue\.js\}"/);
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
   assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);
   assert.doesNotMatch(piNix, /"npm:pi-zentui"/);
