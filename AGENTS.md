@@ -12,4 +12,4 @@ These are hard constraints for every code change and patch in this repository.
 - **Test the behavior, not implementation details.** Add only focused regression coverage.
 - **Redesign when complexity grows.** If a small fix starts spreading, stop and find a narrower boundary.
 
-When trade-offs exist, choose maintainability and minimal coupling over completeness or cleverness.
+When trade-offs exist, choose maintainability and minimal coupling over speculative generality or cleverness.

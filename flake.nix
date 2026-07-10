@@ -1,5 +1,5 @@
 {
-  description = "Shared AI harness config for Claude Code, opencode, Pi, and MCP.";
+  description = "Shared AI harness config for Claude Code, Codex, Gemini CLI, opencode, Pi, and MCP.";
 
   inputs = {
     readonly-bash = {

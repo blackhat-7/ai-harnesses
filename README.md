@@ -1,6 +1,6 @@
 # ai-harnesses
 
-Shared Home Manager config for Claude Code, opencode, Pi, and MCP catalogs.
+Shared Home Manager config for Claude Code, Codex, Gemini CLI, opencode, Pi, and MCP catalogs.
 
 Keep this repo focused on portable harness config, not machine-specific system
 configuration.
@@ -47,6 +47,7 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Claude Code config lives in `claude.nix`.
 - opencode config lives in `opencode.nix`.
 - Pi config lives in `pi.nix`.
+- Global engineering guidance lives in `files/AGENTS.md` and is linked to each harness's standard user-level instruction path.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
 - Remote MCP API keys are referenced through environment variables such as `GITHUB_MCP_TOKEN` and `AFTERSHOOT_MCP_API_KEY`.
 - Atlassian/Jira/Confluence uses the official Atlassian Rovo MCP endpoint (`https://mcp.atlassian.com/v1/mcp/authv2`) with OAuth. Pi requests only Jira/Confluence read/search scopes and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
@@ -72,6 +73,7 @@ nix build .#homeConfigurations.<name>.activationPackage \
 
 Home Manager writes:
 
+- `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.config/opencode/AGENTS.md`, `~/.pi/agent/AGENTS.md`, and `~/.gemini/GEMINI.md` from `files/AGENTS.md`
 - `~/.claude/settings.json`
 - `~/.claude.json`
 - `~/.config/opencode/opencode.json`

@@ -8,6 +8,16 @@
     ./mcp.nix
   ];
 
+  config.home.file = lib.genAttrs [
+    ".claude/CLAUDE.md"
+    ".codex/AGENTS.md"
+    ".config/opencode/AGENTS.md"
+    ".pi/agent/AGENTS.md"
+    ".gemini/GEMINI.md"
+  ] (_: {
+    source = ./files/AGENTS.md;
+  });
+
   options.aiHarnesses = {
     mode = lib.mkOption {
       type = lib.types.enum [ "restricted" "yolo" ];
