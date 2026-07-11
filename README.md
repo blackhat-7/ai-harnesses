@@ -29,6 +29,9 @@ aiHarnesses.mode = "restricted"; # default: ask for writes/unknown bash
 
 aiHarnesses.mcp.enable = true;         # false writes empty MCP configs
 aiHarnesses.mcp.enabledServers = null; # all known servers, or e.g. [ "github" "bestiary" ]
+
+# Optional: omit packages, uninstall stale copies, and skip their patches/setup.
+aiHarnesses.pi.disabledPackages = [ "npm:pi-claude-style-tools" ];
 ```
 
 MCP selection is static Nix config, not env/project config, so a vivarium agent cannot self-enable disabled MCPs through this module.

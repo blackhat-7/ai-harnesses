@@ -253,6 +253,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(defaultNix, /default = "restricted";/);
   assert.match(defaultNix, /mcp = \{/);
   assert.match(defaultNix, /enabledServers/);
+  assert.match(defaultNix, /pi\.disabledPackages = lib\.mkOption/);
+  assert.match(defaultNix, /type = lib\.types\.listOf lib\.types\.str/);
   assert.match(mcpServersNix, /unknownServers/);
   assert.match(mcpServersNix, /if !mcpEnable then\s*\{ \}/);
 
@@ -278,6 +280,10 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
   assert.match(piNix, /"\$\{\.\/patches\/pi-permission-dialog-queue\.js\}"/);
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
+  assert.match(piNix, /builtins\.filter piPackageEnabled/);
+  assert.match(piNix, /removeDisabledPiPackages = lib\.concatMapStringsSep/);
+  assert.match(piNix, /patchPiClaudeStyleTools = lib\.optionalString \(piPackageEnabled "npm:pi-claude-style-tools"\)/);
+  assert.match(piNix, /patchPiSubagents = lib\.optionalString \(piPackageEnabled "npm:@gotgenes\/pi-subagents"\)/);
   assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);
   assert.doesNotMatch(piNix, /"npm:pi-zentui"/);
   assert.match(piNix, /"git:github\.com\/blackhat-7\/pi-dynamic-workflows@permission-prompts"/);

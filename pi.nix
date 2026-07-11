@@ -12,6 +12,8 @@ let
   isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
   selectedMcpServers = config.aiHarnesses.mcp.enabledServers or null;
   mcpEnabled = (config.aiHarnesses.mcp.enable or true) && selectedMcpServers != [ ];
+  disabledPiPackages = config.aiHarnesses.pi.disabledPackages or [ ];
+  piPackageEnabled = source: !builtins.elem source disabledPiPackages;
 
   readonlyBashSrc = aiHarnessesInputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
@@ -46,26 +48,26 @@ let
     "@earendil-works/pi-coding-agent"
     "beautiful-mermaid"
   ];
-  piPackages = lib.optionals mcpEnabled [
-    "npm:pi-mcp-adapter"
-  ] ++ [
-    "npm:@gotgenes/pi-permission-system"
-    "npm:pi-web-access"
-    "npm:@gotgenes/pi-subagents"
-    "npm:pi-mermaid"
-    "npm:@juicesharp/rpiv-todo"
-    "npm:@ifi/oh-pi-themes"
-    "npm:pi-opencode-theme"
-    "npm:pi-rewind"
-    "npm:pi-intercom"
-    "npm:pi-autoname"
-    "npm:pi-bar"
-    "npm:pi-ffmpeg"
-    "npm:pi-claude-style-tools"
-    "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
-    "npm:pi-vim"
-    "npm:pi-hermes-memory"
-  ];
+  piPackages = builtins.filter piPackageEnabled (
+    lib.optionals mcpEnabled [ "npm:pi-mcp-adapter" ] ++ [
+      "npm:@gotgenes/pi-permission-system"
+      "npm:pi-web-access"
+      "npm:@gotgenes/pi-subagents"
+      "npm:pi-mermaid"
+      "npm:@juicesharp/rpiv-todo"
+      "npm:@ifi/oh-pi-themes"
+      "npm:pi-opencode-theme"
+      "npm:pi-rewind"
+      "npm:pi-intercom"
+      "npm:pi-autoname"
+      "npm:pi-bar"
+      "npm:pi-ffmpeg"
+      "npm:pi-claude-style-tools"
+      "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
+      "npm:pi-vim"
+      "npm:pi-hermes-memory"
+    ]
+  );
 
   readonlyBashConfig = {
     cliPath = readonlyBashCliString;
@@ -178,7 +180,7 @@ let
     rm -f "$settings_tmp"
   '';
 
-  writePiClaudeStyleToolsSettings = ''
+  writePiClaudeStyleToolsSettings = lib.optionalString (piPackageEnabled "npm:pi-claude-style-tools") ''
     settings="$HOME/.pi/settings.json"
     settings_tmp="$(mktemp)"
     mkdir -p "$(dirname "$settings")"
@@ -193,6 +195,15 @@ let
     mv "$settings.tmp" "$settings"
     rm -f "$settings_tmp"
   '';
+  patchPiClaudeStyleTools = lib.optionalString (piPackageEnabled "npm:pi-claude-style-tools") ''
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-style-code-blocks.js}
+  '';
+  patchPiSubagents = lib.optionalString (piPackageEnabled "npm:@gotgenes/pi-subagents") ''
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
+  '';
+  removeDisabledPiPackages = lib.concatMapStringsSep "\n" (source: ''
+    "$npm_bin/pi" remove ${lib.escapeShellArg source}
+  '') disabledPiPackages;
 
   installPiActivation = ''
     export PATH="${lib.makeBinPath [ pkgs.nodejs_26 pkgs.curl pkgs.wget pkgs.git pkgs.git-lfs ]}:$PATH"
@@ -204,8 +215,9 @@ let
     ${writePiSettings}
     ${writePiClaudeStyleToolsSettings}
     "$npm_bin/pi" update --extensions
-    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-style-code-blocks.js}
-    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
+    ${removeDisabledPiPackages}
+    ${patchPiClaudeStyleTools}
+    ${patchPiSubagents}
   '';
 in
 {
@@ -226,7 +238,7 @@ in
     ${writePiClaudeStyleToolsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
-    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-style-code-blocks.js}
+    ${patchPiClaudeStyleTools}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}
     ${helpers.writeJson "$HOME/.pi/agent/keybindings.json" piKeybindings}
     ${helpers.writeJson "$HOME/.pi/web-search.json" piWebSearchConfig}

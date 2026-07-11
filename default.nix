@@ -37,5 +37,11 @@
         description = "MCP server names to enable. null means all known servers.";
       };
     };
+
+    pi.disabledPackages = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Pi package sources to omit, uninstall, and skip package-specific setup for.";
+    };
   };
 }
