@@ -98,6 +98,27 @@ let
       "chutes/**"
     ];
     compaction.enabled = true;
+  } // lib.optionalAttrs (piPackageEnabled "npm:@codexstar/pi-listen") {
+    voice = {
+      version = 2;
+      enabled = true;
+      language = "en";
+      backend = "local";
+      localModel = "parakeet-v2";
+      scope = "global";
+      ttsEnabled = true;
+      ttsBackend = "local";
+      ttsLocalModel = "kokoro-int8-en-v0_19";
+      ttsLocalVoiceId = 0;
+      ttsAutoSpeak = true;
+      ttsLanguage = "en";
+      ttsOnboardingShown = true;
+      onboarding = {
+        completed = true;
+        schemaVersion = 2;
+        source = "setup-command";
+      };
+    };
   };
   piClaudeStyleToolsSettings = {
     toolBackground = "transparent";
