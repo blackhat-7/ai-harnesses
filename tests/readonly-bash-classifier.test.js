@@ -282,6 +282,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
   assert.match(piNix, /builtins\.filter piPackageEnabled/);
   assert.match(piNix, /removeDisabledPiPackages = lib\.concatMapStringsSep/);
+  assert.match(piNix, /npm_config_legacy_peer_deps=true "\$npm_bin\/pi" remove/);
   assert.match(piNix, /patchPiClaudeStyleTools = lib\.optionalString \(piPackageEnabled "npm:pi-claude-style-tools"\)/);
   assert.match(piNix, /patchPiSubagents = lib\.optionalString \(piPackageEnabled "npm:@gotgenes\/pi-subagents"\)/);
   assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);

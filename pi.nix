@@ -202,7 +202,11 @@ let
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
   '';
   removeDisabledPiPackages = lib.concatMapStringsSep "\n" (source: ''
-    "$npm_bin/pi" remove ${lib.escapeShellArg source}
+    if ${pkgs.jq}/bin/jq -e --arg source ${lib.escapeShellArg source} \
+      'any(.packages[]?; (if type == "string" then . else .source end) == $source)' \
+      "$HOME/.pi/agent/settings.json" >/dev/null 2>&1; then
+      npm_config_legacy_peer_deps=true "$npm_bin/pi" remove ${lib.escapeShellArg source}
+    fi
   '') disabledPiPackages;
 
   installPiActivation = ''
@@ -212,10 +216,10 @@ let
     mkdir -p "$npm_bin"
 
     npm install --global ${lib.escapeShellArgs (npmInstallFlags ++ piGlobalNpmPackages)}
+    ${removeDisabledPiPackages}
     ${writePiSettings}
     ${writePiClaudeStyleToolsSettings}
     "$npm_bin/pi" update --extensions
-    ${removeDisabledPiPackages}
     ${patchPiClaudeStyleTools}
     ${patchPiSubagents}
   '';
