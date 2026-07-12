@@ -8,6 +8,7 @@ const DEFAULT_ROOT = path.join(
 );
 const VOICE_MARKER = "ai-harnesses: use full-turn auto-speak";
 const SPEAK_MARKER = "ai-harnesses: natural sentence pauses";
+const SENTENCE_PAUSE_MS = 300;
 
 function replaceOnce(source, oldText, newText) {
   const first = source.indexOf(oldText);
@@ -47,10 +48,19 @@ function patchVoiceSource(source) {
 }
 
 function patchSpeakSource(source) {
+  if (source.includes(SPEAK_MARKER)) {
+    const current = source.match(/const SENTENCE_PAUSE_MS = \d+;/)?.[0];
+    if (!current) return { source, status: "skipped" };
+    const desired = `const SENTENCE_PAUSE_MS = ${SENTENCE_PAUSE_MS};`;
+    return current === desired
+      ? { source, status: "already-patched" }
+      : { source: source.replace(current, desired), status: "patched" };
+  }
+
   return applyEdits(source, SPEAK_MARKER, [
     [
       "const MAX_CHUNK_CHARS = 600;\n",
-      `const MAX_CHUNK_CHARS = 600;\n// ${SPEAK_MARKER}; added after each sentence, beyond model-provided silence.\nconst SENTENCE_PAUSE_MS = 1000;\n`,
+      `const MAX_CHUNK_CHARS = 600;\n// ${SPEAK_MARKER}; added after each sentence, beyond model-provided silence.\nconst SENTENCE_PAUSE_MS = ${SENTENCE_PAUSE_MS};\n`,
     ],
     [
       `export function chunkText(text: string, language: string): string[] {\n\tconst trimmed = text.trim();\n\tif (!trimmed) return [];\n\n\tconst sentences = segmentSentences(trimmed, language);\n\tconst chunks: string[] = [];\n\tlet buf = "";\n\n\tfor (const sentence of sentences) {\n\t\tconst s = sentence.trim();\n\t\tif (!s) continue;\n\n\t\tif (s.length > MAX_CHUNK_CHARS) {\n\t\t\t// Single sentence longer than cap — wrap-split on word boundaries.\n\t\t\tif (buf) { chunks.push(buf); buf = ""; }\n\t\t\tchunks.push(...wordWindowSplit(s));\n\t\t\tcontinue;\n\t\t}\n\n\t\tconst candidate = buf ? \`\${buf} \${s}\` : s;\n\t\tif (candidate.length > MAX_CHUNK_CHARS) {\n\t\t\tchunks.push(buf);\n\t\t\tbuf = s;\n\t\t} else {\n\t\t\tbuf = candidate;\n\t\t}\n\t}\n\tif (buf) chunks.push(buf);\n\treturn chunks;\n}\n`,
