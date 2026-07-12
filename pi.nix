@@ -66,7 +66,7 @@ let
       "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
       "npm:pi-vim"
       "npm:pi-hermes-memory"
-      "npm:@codexstar/pi-listen"
+      "npm:@codexstar/pi-listen@7.2.0"
     ]
   );
 
