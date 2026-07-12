@@ -72,7 +72,7 @@ test("disables fragmented streaming auto-speak", () => {
 test("splits synthesis by sentence and inserts a short deterministic pause", () => {
   const result = patchSpeakSource(speakSource);
   assert.equal(result.status, "patched");
-  assert.match(result.source, /const SENTENCE_PAUSE_MS = 180/);
+  assert.match(result.source, /const SENTENCE_PAUSE_MS = 240/);
   assert.match(result.source, /for \(const sentence of segmentSentences/);
   assert.doesNotMatch(result.source, /let buf = ""/);
   assert.match(result.source, /new Int16Array\(Math\.round\(audio\.sampleRate \* SENTENCE_PAUSE_MS \/ 1000\)\)/);
