@@ -108,7 +108,7 @@ let
       scope = "global";
       ttsEnabled = true;
       ttsBackend = "local";
-      ttsLocalModel = "kokoro-int8-en-v0_19";
+      ttsLocalModel = "kokoro-en-v0_19";
       ttsLocalVoiceId = 0;
       ttsAutoSpeak = true;
       ttsLanguage = "en";
