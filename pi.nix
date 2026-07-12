@@ -66,7 +66,7 @@ let
       "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
       "npm:pi-vim"
       "npm:pi-hermes-memory"
-      "npm:@codexstar/pi-listen@7.2.0"
+      "npm:@codexstar/pi-listen"
     ]
   );
 
@@ -223,6 +223,9 @@ let
   patchPiSubagents = lib.optionalString (piPackageEnabled "npm:@gotgenes/pi-subagents") ''
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
   '';
+  patchPiListen = lib.optionalString (piPackageEnabled "npm:@codexstar/pi-listen") ''
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-listen-pauses.js}
+  '';
   removeDisabledPiPackages = lib.concatMapStringsSep "\n" (source: ''
     if ${pkgs.jq}/bin/jq -e --arg source ${lib.escapeShellArg source} \
       'any(.packages[]?; (if type == "string" then . else .source end) == $source)' \
@@ -244,6 +247,7 @@ let
     "$npm_bin/pi" update --extensions
     ${patchPiClaudeStyleTools}
     ${patchPiSubagents}
+    ${patchPiListen}
   '';
 in
 {

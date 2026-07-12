@@ -285,6 +285,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /npm_config_legacy_peer_deps=true "\$npm_bin\/pi" remove/);
   assert.match(piNix, /patchPiClaudeStyleTools = lib\.optionalString \(piPackageEnabled "npm:pi-claude-style-tools"\)/);
   assert.match(piNix, /patchPiSubagents = lib\.optionalString \(piPackageEnabled "npm:@gotgenes\/pi-subagents"\)/);
+  assert.match(piNix, /patchPiListen = lib\.optionalString \(piPackageEnabled "npm:@codexstar\/pi-listen"\)/);
+  assert.match(piNix, /patch-pi-listen-pauses\.js/);
   assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);
   assert.doesNotMatch(piNix, /"npm:pi-zentui"/);
   assert.match(piNix, /"git:github\.com\/blackhat-7\/pi-dynamic-workflows@permission-prompts"/);
