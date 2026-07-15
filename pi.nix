@@ -95,7 +95,8 @@ let
     defaultProvider = "openai-codex";
     enabledModels = [
       "openai-codex/*"
-      "chutes/**"
+      "chutes/*"
+      "anthropic/*"
     ];
     compaction.enabled = true;
   } // lib.optionalAttrs (piPackageEnabled "npm:@codexstar/pi-listen") {
