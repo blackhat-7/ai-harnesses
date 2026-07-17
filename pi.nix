@@ -223,6 +223,7 @@ let
   '';
   patchPiSubagents = lib.optionalString (piPackageEnabled "npm:@gotgenes/pi-subagents") ''
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-mouse.js}
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-subagents-inherit-model.js}
   '';
   patchPiListen = lib.optionalString (piPackageEnabled "npm:@codexstar/pi-listen") ''
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-listen-pauses.js}
