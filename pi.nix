@@ -108,7 +108,7 @@ let
       backend = "local";
       localModel = "parakeet-v2";
       scope = "global";
-      ttsEnabled = true;
+      ttsEnabled = false;
       ttsBackend = "local";
       ttsLocalModel = "kokoro-en-v0_19";
       ttsLocalVoiceId = 0;
