@@ -97,6 +97,7 @@ let
       "openai-codex/*"
       "chutes/**"
       "anthropic/*"
+      "kimi-coding/*"
     ];
     compaction.enabled = true;
   } // lib.optionalAttrs (piPackageEnabled "npm:@codexstar/pi-listen") {
