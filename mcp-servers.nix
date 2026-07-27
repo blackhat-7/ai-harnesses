@@ -102,6 +102,10 @@ let
         Authorization = "Bearer \${GITHUB_MCP_TOKEN}";
       };
     };
+    atlassian = {
+      type = "http";
+      url = "https://mcp.atlassian.com/v1/mcp/authv2";
+    };
     chrome-devtools = {
       command = "npx";
       args = [
