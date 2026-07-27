@@ -95,6 +95,13 @@ let
         "serve"
       ];
     };
+    code-review-graph = {
+      command = "uvx";
+      args = [
+        "code-review-graph"
+        "serve"
+      ];
+    };
     github = {
       type = "http";
       url = "https://api.githubcopilot.com/mcp/";

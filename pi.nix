@@ -47,7 +47,7 @@ let
   piGlobalNpmPackages = [
     "@earendil-works/pi-coding-agent"
     "beautiful-mermaid"
-  ];
+  ] ++ lib.optionals (piPackageEnabled "npm:pi-lean-ctx") [ "lean-ctx-bin" ];
   piPackages = builtins.filter piPackageEnabled (
     lib.optionals mcpEnabled [ "npm:pi-mcp-adapter" ] ++ [
       "npm:@gotgenes/pi-permission-system"
@@ -67,6 +67,7 @@ let
       "npm:pi-vim"
       "npm:pi-hermes-memory"
       "npm:@codexstar/pi-listen"
+      "npm:pi-lean-ctx"
     ]
   );
 
@@ -146,6 +147,10 @@ let
     fetch_content = "allow";
     get_search_content = "allow";
     code_search = "allow";
+    ctx_read = "allow";
+    ctx_grep = "allow";
+    ctx_find = "allow";
+    ctx_ls = "allow";
     memory = "allow";
     memory_search = "allow";
     session_search = "allow";
@@ -167,6 +172,12 @@ let
     permissionReviewLog = true;
     yoloMode = isYolo;
     permission = if isYolo then piYoloPermission else piRestrictedPermission;
+  };
+  piLeanCtxConfig = {
+    mode = "additive";
+    routeShell = false;
+    enableMcp = true;
+    toolProfile = "lean";
   };
   piSubagentsSettings = {
     maxConcurrent = 4;
@@ -204,6 +215,9 @@ let
     rm -f "$settings_tmp"
   '';
 
+  writePiLeanCtxConfig = lib.optionalString (piPackageEnabled "npm:pi-lean-ctx") ''
+    ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-lean-ctx/config.json" piLeanCtxConfig}
+  '';
   writePiClaudeStyleToolsSettings = lib.optionalString (piPackageEnabled "npm:pi-claude-style-tools") ''
     settings="$HOME/.pi/settings.json"
     settings_tmp="$(mktemp)"
@@ -263,13 +277,14 @@ in
   home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
 
   home.activation.writePiConfigs = lib.hm.dag.entryAfter [ "writeBoundary" "install-pi" ] ''
-    mkdir -p "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.pi/agent/readonly-bash-approvals"
+    mkdir -p "$HOME/.pi" "$HOME/.pi/agent" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/extensions/pi-lean-ctx" "$HOME/.pi/agent/extensions/pi-permission-system" "$HOME/.pi/agent/readonly-bash-approvals"
     chmod 700 "$HOME/.pi/agent/readonly-bash-approvals"
     rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js" "$HOME/.pi/agent/pi-permissions.jsonc" "$HOME/.pi/agent/extensions/subagent/config.json"
     ${helpers.writeJson "$HOME/.pi/agent/readonly-bash.json" readonlyBashConfig}
     ${writePiSettings}
     ${writePiClaudeStyleToolsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
+    ${writePiLeanCtxConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     ${patchPiClaudeStyleTools}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}

@@ -55,6 +55,8 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Remote MCP API keys are referenced through environment variables such as `GITHUB_MCP_TOKEN` and `AFTERSHOOT_MCP_API_KEY`.
 - Atlassian/Jira/Confluence uses the official Atlassian Rovo MCP endpoint (`https://mcp.atlassian.com/v1/mcp/authv2`) with OAuth. Pi requests only Jira/Confluence read/search scopes and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
+- Pi uses `pi-lean-ctx` in additive, lean-profile mode for compressed reads and persistent caching while keeping native bash on the readonly-bash permission path.
+- `code-review-graph` is available through the shared MCP catalog and runs lazily via `uvx`.
 
 ## Atlassian MCP auth and read-only setup
 
@@ -87,6 +89,7 @@ Home Manager writes:
 - `~/.pi/settings.json`
 - `~/.pi/agent/readonly-bash.json`
 - `~/.pi/agent/extensions/pi-permission-system/config.json`
+- `~/.pi/agent/extensions/pi-lean-ctx/config.json`
 - `~/.pi/agent/subagents.json`
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/web-search.json`
