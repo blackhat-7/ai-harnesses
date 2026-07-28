@@ -151,6 +151,12 @@ let
     ctx_grep = "allow";
     ctx_find = "allow";
     ctx_ls = "allow";
+    ctx_tree = "allow";
+    ctx_compose = "allow";
+    ctx_expand = "allow";
+    ctx_glob = "allow";
+    ctx_search = "allow";
+    ctx_callgraph = "allow";
     memory = "allow";
     memory_search = "allow";
     session_search = "allow";
@@ -178,6 +184,7 @@ let
     routeShell = false;
     enableMcp = true;
     toolProfile = "lean";
+    disableTools = [ "ctx_shell" ];
   };
   piSubagentsSettings = {
     maxConcurrent = 4;
