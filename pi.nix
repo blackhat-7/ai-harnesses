@@ -68,6 +68,7 @@ let
       "npm:pi-hermes-memory"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
+      "git:github.com/DietrichGebert/ponytail"
     ]
   );
 
