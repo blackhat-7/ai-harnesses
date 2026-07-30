@@ -118,7 +118,7 @@ let
     };
     aftershoot-mcp = {
       type = "http";
-      url = "https://mcp-gateway.aftershoot.dev/mcp";
+      url = "https://heimdall.aftershoot.dev/mcp";
       headers = {
         Authorization = "Bearer \${AFTERSHOOT_MCP_API_KEY}";
       };
