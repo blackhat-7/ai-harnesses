@@ -185,7 +185,11 @@ let
     routeShell = false;
     enableMcp = true;
     toolProfile = "lean";
-    disableTools = [ "ctx_shell" ];
+    disableTools = [
+      "ctx_patch"
+      "ctx_shell"
+      "shell"
+    ];
   };
   piSubagentsSettings = {
     maxConcurrent = 4;
