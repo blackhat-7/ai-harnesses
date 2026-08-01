@@ -127,10 +127,6 @@ let
       type = "http";
       url = "https://mcp.atlassian.com/v1/mcp/authv2";
     };
-    gmail = {
-      type = "http";
-      url = "https://gmailmcp.googleapis.com/mcp/v1";
-    };
     playwright = {
       command = "npx";
       args = [ "@playwright/mcp@latest" ];
@@ -190,23 +186,6 @@ let
       exposeResources = false;
       directTools = false;
       excludeTools = atlassianExcludedTools;
-    }
-    // lib.optionalAttrs (name == "gmail") {
-      auth = "oauth";
-      oauth = {
-        clientId = "\${GMAIL_MCP_CLIENT_ID}";
-        clientSecret = "\${GMAIL_MCP_CLIENT_SECRET}";
-        redirectUri = "http://localhost:3118/callback";
-        scope = "https://www.googleapis.com/auth/gmail.readonly";
-      };
-      exposeResources = false;
-      directTools = false;
-      includeTools = [
-        "get_message"
-        "get_thread"
-        "list_labels"
-        "search_threads"
-      ];
     };
 in
 {

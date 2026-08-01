@@ -54,7 +54,6 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
 - Remote MCP API keys are referenced through environment variables such as `GITHUB_MCP_TOKEN` and `AFTERSHOOT_MCP_API_KEY`.
 - Atlassian/Jira/Confluence uses the official Atlassian Rovo MCP endpoint (`https://mcp.atlassian.com/v1/mcp/authv2`) with OAuth. Pi requests only Jira/Confluence read/search scopes and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
-- Gmail uses Google's hosted MCP endpoint (`https://gmailmcp.googleapis.com/mcp/v1`). Pi requests only `gmail.readonly` and allowlists read tools.
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
 - Pi uses `pi-lean-ctx` in additive, lean-profile mode for compressed reads and persistent caching while keeping native bash on the readonly-bash permission path.
 - `code-review-graph` is available through the shared MCP catalog and runs lazily via `uvx`.
@@ -65,13 +64,6 @@ nix build .#homeConfigurations.<name>.activationPackage \
 2. In the **Permissions** tab, allow **Read** and **Search** only for Jira/Confluence; block **Write**. Use **Edit details** if you need per-app control, and do not auto-allow future write permissions.
 3. Apply this Home Manager module so the `atlassian` MCP server is written.
 4. In Pi, run `/mcp-auth atlassian` or `mcp({ action: "auth-start", server: "atlassian" })`, open the URL, sign in, then complete with `mcp({ action: "auth-complete", server: "atlassian", args: '{"redirectUrl":"PASTE_REDIRECT_URL"}' })`.
-
-## Gmail MCP auth and read-only setup
-
-1. In a Google Cloud project, enable `gmail.googleapis.com` and `gmailmcp.googleapis.com`.
-2. Configure the OAuth consent screen with only `https://www.googleapis.com/auth/gmail.readonly`, then create a **Web application** OAuth client with `http://localhost:3118/callback` as an authorized redirect URI.
-3. Export its credentials as `GMAIL_MCP_CLIENT_ID` and `GMAIL_MCP_CLIENT_SECRET`, then apply this Home Manager module.
-4. In Pi, authenticate `gmail` through `/mcp` or `mcp({ action: "auth-start", server: "gmail" })`.
 
 ## readonly-bash auto-approval
 
