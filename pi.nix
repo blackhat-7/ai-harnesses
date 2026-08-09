@@ -97,7 +97,7 @@ let
     defaultProvider = "openai-codex";
     enabledModels = [
       "openai-codex/*"
-      "chutes/**"
+      "deepseek/*"
       "anthropic/*"
       "kimi-coding/*"
     ];
