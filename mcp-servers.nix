@@ -75,7 +75,6 @@ let
     "read:me"
     "read:account"
     "read:jira-work"
-    "search:jira-work"
     "read:page:confluence"
     "read:hierarchical-content:confluence"
     "read:comment:confluence"
