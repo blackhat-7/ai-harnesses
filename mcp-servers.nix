@@ -83,6 +83,17 @@ let
   ];
 
   allMcpServers = {
+    # Read-only Slack workspace access: messages, threads, channels, users.
+    # Backed by a local slackdump archive (~/.slack-archive/slackdump.sqlite)
+    # refreshed daily via launchd. The server is read-only by design; the
+    # archive itself is opened read-only.
+    slackdump = {
+      command = "slackdump";
+      args = [
+        "mcp"
+        "/Users/illusion/.slack-archive/slackdump.sqlite"
+      ];
+    };
     bestiary = {
       command = "uvx";
       args = [

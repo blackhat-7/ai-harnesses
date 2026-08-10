@@ -8,15 +8,20 @@
     ./mcp.nix
   ];
 
-  config.home.file = lib.genAttrs [
-    ".claude/CLAUDE.md"
-    ".codex/AGENTS.md"
-    ".config/opencode/AGENTS.md"
-    ".pi/agent/AGENTS.md"
-    ".gemini/GEMINI.md"
-  ] (_: {
-    source = ./files/AGENTS.md;
-  });
+  config.home.file = lib.mkMerge [
+    (lib.genAttrs [
+      ".claude/CLAUDE.md"
+      ".codex/AGENTS.md"
+      ".config/opencode/AGENTS.md"
+      ".pi/agent/AGENTS.md"
+      ".gemini/GEMINI.md"
+    ] (_: {
+      source = ./files/AGENTS.md;
+    }))
+    (lib.genAttrs [ ".claude/skills/slackdump/SKILL.md" ] (_: {
+      source = ./files/skills/slackdump/SKILL.md;
+    }))
+  ];
 
   options.aiHarnesses = {
     mode = lib.mkOption {
