@@ -140,6 +140,10 @@ let
         LINEAR_API_TOKEN = "\${LINEAR_API_KEY}";
       };
     };
+    google-services = {
+      command = "pi-google-services";
+      args = [ "serve" ];
+    };
   };
 
   unknownServers =
@@ -185,6 +189,9 @@ let
       exposeResources = false;
       directTools = false;
       excludeTools = atlassianExcludedTools;
+    }
+    // lib.optionalAttrs (name == "google-services") {
+      includeTools = [ "list-inbox" "get-email" "search-emails" ];
     };
 in
 {
