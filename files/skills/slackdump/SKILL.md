@@ -19,7 +19,18 @@ modifies the archive, and the archive itself is opened `mode=ro`.
 - **bestiary `slack_stats` tool** — preferred for stats and aggregates (SQL
   over the archive): ops `channels`, `users`, `messages_per_day`, `top_users`,
   `search`. Params: `channel` (Slack ID), `days` (default 30, max 3650),
-  `limit` (default 20, max 100), `query` (required for `search`).
+  `start`/`end` (YYYY-MM-DD, inclusive, UTC — overrides `days`), `limit`
+  (default 20, max 100), `query` (required for `search`).
+
+## Long history & big windows
+
+- The archive holds all history since the first `slackdump archive` (resume
+  only appends newer messages), so queries into the past are local and free.
+- Results are capped at `limit` (100 max). For windows bigger than that — or
+  for long-ago stats — divide the range into adjacent `start`/`end` windows
+  and query each (e.g. year by year, or month by month for `messages_per_day`).
+- For raw messages, page with `get_messages(channel_id, limit=1000, after_ts)`
+  where `after_ts` is the last returned ts — repeat until the window is covered.
 
 ## Data freshness — do not run these yourself
 
