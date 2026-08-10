@@ -50,7 +50,6 @@ let
   ] ++ lib.optionals (piPackageEnabled "npm:pi-lean-ctx") [ "lean-ctx-bin" ];
   piPackages = builtins.filter piPackageEnabled (
     lib.optionals mcpEnabled [ "npm:pi-mcp-adapter" ] ++ [
-      "npm:pi-google-services"
       "npm:@gotgenes/pi-permission-system"
       "npm:pi-web-access"
       "npm:@gotgenes/pi-subagents"
