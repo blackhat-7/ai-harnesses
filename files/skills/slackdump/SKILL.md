@@ -1,3 +1,8 @@
+---
+name: slackdump
+description: Read-only Slack workspace access from a local slackdump archive — messages, channels, users, and stats. Use whenever the user asks anything about Slack messages, channels, activity, or stats.
+---
+
 # slackdump — read-only Slack workspace access
 
 Read-only access to Slack messages, channels, users, and stats, from a local
