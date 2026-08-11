@@ -90,6 +90,7 @@ let
     extensions = [
       "${./readonly-bash-classifier.js}"
       "${./patches/pi-mouse.js}"
+    ] ++ lib.optionals (piPackageEnabled "npm:@gotgenes/pi-permission-system") [
       "${./patches/pi-permission-dialog-queue.js}"
     ];
     shellPath = piReadonlyBashTrustedShellString;
