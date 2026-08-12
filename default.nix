@@ -18,9 +18,6 @@
     ] (_: {
       source = ./files/AGENTS.md;
     }))
-    (lib.genAttrs [ ".claude/skills/slackdump/SKILL.md" ] (_: {
-      source = ./files/skills/slackdump/SKILL.md;
-    }))
   ];
 
   options.aiHarnesses = {
