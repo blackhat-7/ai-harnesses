@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
+const PERMISSIONS_SERVICE = Symbol.for("@gotgenes/pi-permission-system:service");
 const AUTHOR_NAME = "workspace-file-edits";
 const FILE_EDIT_TOOLS = new Set(["edit", "write", "ctx_edit", "ctx_patch"]);
 const PATH_PREVIEW_PREFIX = "at path ";
@@ -103,31 +104,24 @@ function workspaceFileAuthorizer(pi) {
   });
 
   pi.events.on("permissions:ready", () => {
-    void (async () => {
-      try {
-        const { getPermissionsService } = await import("@gotgenes/pi-permission-system");
-        const permissions = getPermissionsService();
-        if (!permissions) return;
+    const permissions = globalThis[PERMISSIONS_SERVICE];
+    if (!permissions) return;
 
-        dispose.forEach((fn) => fn());
-        dispose = [
-          permissions.registerToolInputFormatter("ctx_edit", pathPreview),
-          permissions.registerToolInputFormatter("ctx_patch", pathPreview),
-          permissions.registerAuthorizer(AUTHOR_NAME, async (details, _query, log) => {
-            const verdict = cwd ? classifyFileEdit(details, cwd) : { kind: "defer" };
-            if (verdict.kind !== "defer") {
-              log.review(`workspace_file_authorizer.${verdict.kind}`, {
-                requestId: details.requestId,
-                toolName: details.toolName ?? details.surface ?? null,
-              });
-            }
-            return verdict;
-          }),
-        ];
-      } catch {
-        // pi-permission-system is optional.
-      }
-    })();
+    dispose.forEach((fn) => fn());
+    dispose = [
+      permissions.registerToolInputFormatter("ctx_edit", pathPreview),
+      permissions.registerToolInputFormatter("ctx_patch", pathPreview),
+      permissions.registerAuthorizer(AUTHOR_NAME, async (details, _query, log) => {
+        const verdict = cwd ? classifyFileEdit(details, cwd) : { kind: "defer" };
+        if (verdict.kind !== "defer") {
+          log.review(`workspace_file_authorizer.${verdict.kind}`, {
+            requestId: details.requestId,
+            toolName: details.toolName ?? details.surface ?? null,
+          });
+        }
+        return verdict;
+      }),
+    ];
   });
 
   pi.on("session_shutdown", () => {

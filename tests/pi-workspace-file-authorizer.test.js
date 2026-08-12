@@ -2,13 +2,15 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { EventEmitter } = require("node:events");
 const test = require("node:test");
 
+const workspaceFileAuthorizer = require("../pi-workspace-file-authorizer.js");
 const {
   classifyFileEdit,
   pathPreview,
   targetsGit,
-} = require("../pi-workspace-file-authorizer.js");
+} = workspaceFileAuthorizer;
 
 function details(toolName, target) {
   return {
@@ -90,4 +92,34 @@ test("uses an exact path preview for extension edit tools", () => {
     { kind: "allow" },
   );
   assert.equal(pathPreview({}), undefined);
+});
+
+test("registers the configured authorizer when permissions are ready", () => {
+  const events = new EventEmitter();
+  const handlers = new Map();
+  const registered = [];
+  const serviceKey = Symbol.for("@gotgenes/pi-permission-system:service");
+  globalThis[serviceKey] = {
+    registerToolInputFormatter(name) {
+      registered.push(name);
+      return () => {};
+    },
+    registerAuthorizer(name) {
+      registered.push(name);
+      return () => {};
+    },
+  };
+
+  workspaceFileAuthorizer({
+    events,
+    on(name, handler) {
+      handlers.set(name, handler);
+    },
+  });
+  handlers.get("session_start")({}, { cwd: "/workspace" });
+  events.emit("permissions:ready");
+
+  assert.deepEqual(registered, ["ctx_edit", "ctx_patch", "workspace-file-edits"]);
+  handlers.get("session_shutdown")();
+  delete globalThis[serviceKey];
 });
