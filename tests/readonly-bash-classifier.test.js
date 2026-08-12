@@ -279,6 +279,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
   assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
   assert.match(piNix, /"\$\{\.\/patches\/pi-permission-dialog-queue\.js\}"/);
+  assert.match(piNix, /"\$\{\.\/pi-workspace-file-authorizer\.js\}"/);
+  assert.match(piNix, /authorizerChain = lib\.optionals \(!isYolo\) \[ "workspace-file-edits" \];/);
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
   assert.match(piNix, /builtins\.filter piPackageEnabled/);
   assert.match(piNix, /removeDisabledPiPackages = lib\.concatMapStringsSep/);
@@ -315,7 +317,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
     assert.match(piNix, new RegExp(`${tool} = "allow";`));
   }
   assert.doesNotMatch(piNix, /ctx_shell = "allow";/);
-  assert.match(piNix, /disableTools = \[ "ctx_shell" \];/);
+  assert.match(piNix, /disableTools = \[[\s\S]*?"ctx_shell"[\s\S]*?\];/);
   assert.match(piNix, /structured_output = "allow";/);
   assert.match(piNix, /get_subagent_result = "allow";/);
   assert.match(piNix, /steer_subagent = "allow";/);

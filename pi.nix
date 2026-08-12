@@ -92,6 +92,7 @@ let
       "${./patches/pi-mouse.js}"
     ] ++ lib.optionals (piPackageEnabled "npm:@gotgenes/pi-permission-system") [
       "${./patches/pi-permission-dialog-queue.js}"
+      "${./pi-workspace-file-authorizer.js}"
     ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
@@ -179,6 +180,7 @@ let
     debugLog = false;
     permissionReviewLog = true;
     yoloMode = isYolo;
+    authorizerChain = lib.optionals (!isYolo) [ "workspace-file-edits" ];
     permission = if isYolo then piYoloPermission else piRestrictedPermission;
   };
   piLeanCtxConfig = {
