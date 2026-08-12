@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PERMISSIONS_SERVICE = Symbol.for("@gotgenes/pi-permission-system:service");
+const REGISTRATION_STATE = Symbol.for("ai-harnesses:workspace-file-authorizer");
 const AUTHOR_NAME = "workspace-file-edits";
 const FILE_EDIT_TOOLS = new Set(["edit", "write", "ctx_edit", "ctx_patch"]);
 const PATH_PREVIEW_PREFIX = "at path ";
@@ -85,8 +86,8 @@ function pathPreview(input) {
 }
 
 function workspaceFileAuthorizer(pi) {
+  const owner = {};
   let cwd;
-  let dispose = [];
 
   pi.on("session_start", (_event, ctx) => {
     cwd = ctx.cwd;
@@ -103,12 +104,15 @@ function workspaceFileAuthorizer(pi) {
     }
   });
 
-  pi.events.on("permissions:ready", () => {
+  const unsubscribeReady = pi.events.on("permissions:ready", () => {
     const permissions = globalThis[PERMISSIONS_SERVICE];
     if (!permissions) return;
 
-    dispose.forEach((fn) => fn());
-    dispose = [
+    const current = globalThis[REGISTRATION_STATE];
+    if (current?.permissions === permissions) return;
+    current?.dispose.forEach((fn) => fn());
+
+    const dispose = [
       permissions.registerToolInputFormatter("ctx_edit", pathPreview),
       permissions.registerToolInputFormatter("ctx_patch", pathPreview),
       permissions.registerAuthorizer(AUTHOR_NAME, async (details, _query, log) => {
@@ -122,11 +126,16 @@ function workspaceFileAuthorizer(pi) {
         return verdict;
       }),
     ];
+    globalThis[REGISTRATION_STATE] = { permissions, owner, dispose };
   });
 
   pi.on("session_shutdown", () => {
-    dispose.forEach((fn) => fn());
-    dispose = [];
+    if (typeof unsubscribeReady === "function") unsubscribeReady();
+    const current = globalThis[REGISTRATION_STATE];
+    if (current?.owner === owner) {
+      current.dispose.forEach((fn) => fn());
+      delete globalThis[REGISTRATION_STATE];
+    }
     cwd = undefined;
   });
 }

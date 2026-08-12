@@ -123,3 +123,66 @@ test("registers the configured authorizer when permissions are ready", () => {
   handlers.get("session_shutdown")();
   delete globalThis[serviceKey];
 });
+
+test("shares registrations across parent and subagent extension instances", async () => {
+  const emitter = new EventEmitter();
+  const events = {
+    emit: (...args) => emitter.emit(...args),
+    on(name, handler) {
+      emitter.on(name, handler);
+      return () => emitter.off(name, handler);
+    },
+  };
+  const serviceKey = Symbol.for("@gotgenes/pi-permission-system:service");
+  const formatters = new Set();
+  const authorizers = new Map();
+  const registrations = [];
+  globalThis[serviceKey] = {
+    registerToolInputFormatter(name) {
+      if (formatters.has(name)) throw new Error(`duplicate formatter: ${name}`);
+      formatters.add(name);
+      registrations.push(name);
+      return () => formatters.delete(name);
+    },
+    registerAuthorizer(name, authorize) {
+      if (authorizers.has(name)) throw new Error(`duplicate authorizer: ${name}`);
+      authorizers.set(name, authorize);
+      registrations.push(name);
+      return () => authorizers.delete(name);
+    },
+  };
+
+  const bind = (cwd) => {
+    const handlers = new Map();
+    workspaceFileAuthorizer({
+      events,
+      on(name, handler) {
+        handlers.set(name, handler);
+      },
+    });
+    handlers.get("session_start")({}, { cwd });
+    return handlers;
+  };
+
+  const parent = bind("/workspace");
+  events.emit("permissions:ready");
+  const child = bind("/child");
+  events.emit("permissions:ready");
+
+  assert.deepEqual(registrations, ["ctx_edit", "ctx_patch", "workspace-file-edits"]);
+  assert.deepEqual(
+    await authorizers.get("workspace-file-edits")(
+      details("ctx_edit", "/workspace/file"),
+      undefined,
+      { review() {} },
+    ),
+    { kind: "allow" },
+  );
+
+  child.get("session_shutdown")();
+  assert.equal(authorizers.has("workspace-file-edits"), true);
+  parent.get("session_shutdown")();
+  assert.equal(formatters.size, 0);
+  assert.equal(authorizers.size, 0);
+  delete globalThis[serviceKey];
+});
