@@ -103,11 +103,15 @@ let
     projectSettingsLookup = "cwd";
   };
 
-  readonlyBashSandboxConfig.filesystem = {
-    denyRead = [ "~" ".env" ];
-    allowRead = [ "." ];
-    allowWrite = [ "." "/tmp" ] ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ "/private/tmp" ];
-    denyWrite = [ ".git" ".env" ];
+  readonlyBashSandboxConfig = {
+    filesystem = {
+      denyRead = [ "~" ".env" ];
+      allowRead = [ "." ];
+      allowWrite = [ "." "/tmp" ] ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ "/private/tmp" ];
+      denyWrite = [ ".git" ".env" ];
+    };
+  } // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+    enableWeakerNetworkIsolation = true;
   };
 
   piSettings = {

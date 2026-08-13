@@ -259,7 +259,7 @@ test("sandbox wrapper keeps filesystem config and disables SRT network filtering
   const marker = path.join(dir, "config.json");
   const modulePath = path.join(dir, "fake-srt.mjs");
   const settingsPath = path.join(dir, "settings.json");
-  fs.writeFileSync(settingsPath, JSON.stringify({ filesystem: { denyRead: ["~"], allowRead: ["."], allowWrite: ["."], denyWrite: [".git"] } }));
+  fs.writeFileSync(settingsPath, JSON.stringify({ enableWeakerNetworkIsolation: true, filesystem: { denyRead: ["~"], allowRead: ["."], allowWrite: ["."], denyWrite: [".git"] } }));
   fs.writeFileSync(modulePath, `
     import fs from "node:fs";
     export const SandboxRuntimeConfigSchema = { parse: (value) => value };
@@ -276,6 +276,7 @@ test("sandbox wrapper keeps filesystem config and disables SRT network filtering
   const config = JSON.parse(fs.readFileSync(marker, "utf8"));
   assert.equal(output, "ok");
   assert.deepEqual(config.filesystem.allowWrite, ["."]);
+  assert.equal(config.enableWeakerNetworkIsolation, true);
   assert.equal(Object.hasOwn(config.network, "allowedDomains"), false);
   assert.deepEqual(config.network.deniedDomains, []);
 });
@@ -380,6 +381,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /allowRead = \[ "\." \];/);
   assert.match(piNix, /allowWrite = \[ "\." "\/tmp" \]/);
   assert.match(piNix, /denyWrite = \[ "\.git" "\.env" \];/);
+  assert.match(piNix, /enableWeakerNetworkIsolation = true;/);
   assert.doesNotMatch(piNix, /allowedDomains|deniedDomains|strictAllowlist|sandbox_network|sandboxNetworkSettingsPath/);
   assert.match(piNix, /readonly-bash-sandbox\.json" readonlyBashSandboxConfig/);
   assert.match(piNix, /home\.packages = \[\s*readonlyBashPkg\s*readonlyBashSandbox/);
