@@ -44,6 +44,7 @@ let
     pkgs.gnused
     pkgs.gawk
     pkgs.go
+    pkgs.stdenv.cc
     pkgs.nodejs
     pkgs.python3
     pkgs.python3Packages.pytest
