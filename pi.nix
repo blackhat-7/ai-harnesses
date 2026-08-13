@@ -22,15 +22,16 @@ let
 
   readonlyBashCliString = discardContext "${readonlyBashPkg}/bin/readonly-bash";
   readonlyBashRunnerCommandString = discardContext "${readonlyBashPkg}/bin/readonly-bash-runner";
-  readonlyBashSandboxPath = lib.makeBinPath (
-    [ pkgs.which pkgs.ripgrep ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.bubblewrap pkgs.socat ]
-  );
-  readonlyBashSandbox = pkgs.writeShellScript "readonly-bash-sandbox" ''
-    export PATH="${readonlyBashSandboxPath}:$PATH"
-    exec ${pkgs.nodejs}/bin/node ${./readonly-bash-sandbox.mjs} \
-      ${pkgs.sandbox-runtime}/lib/node_modules/@anthropic-ai/sandbox-runtime/dist/index.js "$@"
-  '';
-  readonlyBashSandboxString = discardContext readonlyBashSandbox;
+  readonlyBashSandbox = pkgs.writeShellApplication {
+    name = "readonly-bash-sandbox";
+    runtimeInputs = [ pkgs.which pkgs.ripgrep ]
+      ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.bubblewrap pkgs.socat ];
+    text = ''
+      exec ${pkgs.nodejs}/bin/node ${./readonly-bash-sandbox.mjs} \
+        ${pkgs.sandbox-runtime}/lib/node_modules/@anthropic-ai/sandbox-runtime/dist/index.js "$@"
+    '';
+  };
+  readonlyBashSandboxString = discardContext "${readonlyBashSandbox}/bin/readonly-bash-sandbox";
   piReadonlyBashTrustedShellString = discardContext "${pkgs.bash}/bin/bash";
   piReadonlyBashTrustedPathPackages = [
     pkgs.bash

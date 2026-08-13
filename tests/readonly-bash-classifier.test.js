@@ -372,6 +372,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /pkgs\.python3Packages\.pytest/);
   assert.match(piNix, /pkgs\.sandbox-runtime/);
   assert.match(piNix, /readonly-bash-sandbox\.mjs/);
+  assert.match(piNix, /readonlyBashSandboxString = discardContext "\$\{readonlyBashSandbox\}\/bin\/readonly-bash-sandbox";/);
   assert.match(piNix, /sandboxSettingsPath = "~\/\.pi\/agent\/readonly-bash-sandbox\.json";/);
   assert.match(piNix, /allowNetworkRead = true;/);
   assert.match(piNix, /allowTrustedExecute = true;/);
