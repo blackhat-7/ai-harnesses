@@ -23,7 +23,7 @@ let
   readonlyBashCliString = discardContext "${readonlyBashPkg}/bin/readonly-bash";
   readonlyBashRunnerCommandString = discardContext "${readonlyBashPkg}/bin/readonly-bash-runner";
   readonlyBashSandboxPath = lib.makeBinPath (
-    [ pkgs.which pkgs.ripgrep ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.bubblewrap pkgs.socat ]
+    [ pkgs.which pkgs.ripgrep ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.bubblewrap pkgs.socat ]
   );
   readonlyBashSandbox = pkgs.writeShellScript "readonly-bash-sandbox" ''
     export PATH="${readonlyBashSandboxPath}:$PATH"
@@ -105,7 +105,7 @@ let
   readonlyBashSandboxConfig.filesystem = {
     denyRead = [ "~" ".env" ];
     allowRead = [ "." ];
-    allowWrite = [ "." "/tmp" ] ++ lib.optionals pkgs.stdenv.isDarwin [ "/private/tmp" ];
+    allowWrite = [ "." "/tmp" ] ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ "/private/tmp" ];
     denyWrite = [ ".git" ".env" ];
   };
 
