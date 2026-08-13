@@ -312,6 +312,7 @@ in
 {
   home.packages = [
     readonlyBashPkg
+    readonlyBashSandbox
     pkgs.bash
   ]
   ++ piReadonlyBashTrustedPathPackages;

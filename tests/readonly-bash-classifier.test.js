@@ -381,6 +381,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /denyWrite = \[ "\.git" "\.env" \];/);
   assert.doesNotMatch(piNix, /allowedDomains|deniedDomains|strictAllowlist|sandbox_network|sandboxNetworkSettingsPath/);
   assert.match(piNix, /readonly-bash-sandbox\.json" readonlyBashSandboxConfig/);
+  assert.match(piNix, /home\.packages = \[\s*readonlyBashPkg\s*readonlyBashSandbox/);
 
   assert.match(claudeNix, /hasMcp = name:/);
   assert.match(claudeNix, /defaultMode = "bypassPermissions";/);
