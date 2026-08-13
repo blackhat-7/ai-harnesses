@@ -22,8 +22,18 @@ let
 
   readonlyBashCliString = discardContext "${readonlyBashPkg}/bin/readonly-bash";
   readonlyBashRunnerCommandString = discardContext "${readonlyBashPkg}/bin/readonly-bash-runner";
+  readonlyBashSandboxPath = lib.makeBinPath (
+    [ pkgs.which pkgs.ripgrep ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.bubblewrap pkgs.socat ]
+  );
+  readonlyBashSandbox = pkgs.writeShellScript "readonly-bash-sandbox" ''
+    export PATH="${readonlyBashSandboxPath}:$PATH"
+    exec ${pkgs.nodejs}/bin/node ${./readonly-bash-sandbox.mjs} \
+      ${pkgs.sandbox-runtime}/lib/node_modules/@anthropic-ai/sandbox-runtime/dist/index.js "$@"
+  '';
+  readonlyBashSandboxString = discardContext readonlyBashSandbox;
   piReadonlyBashTrustedShellString = discardContext "${pkgs.bash}/bin/bash";
   piReadonlyBashTrustedPathPackages = [
+    pkgs.bash
     pkgs.coreutils
     pkgs.findutils
     pkgs.gnugrep
@@ -32,8 +42,14 @@ let
     pkgs.file
     pkgs.gnused
     pkgs.gawk
+    pkgs.go
     pkgs.nodejs
     pkgs.python3
+    pkgs.python3Packages.pytest
+    pkgs.ruff
+    pkgs.nix
+    pkgs.nixfmt
+    pkgs.shellcheck
   ];
   piReadonlyBashTrustedPathString = discardContext (
     lib.makeBinPath piReadonlyBashTrustedPathPackages
@@ -78,8 +94,19 @@ let
     approvalDir = "~/.pi/agent/readonly-bash-approvals";
     trustedShell = piReadonlyBashTrustedShellString;
     trustedPath = piReadonlyBashTrustedPathString;
+    sandboxPath = readonlyBashSandboxString;
+    sandboxSettingsPath = "~/.pi/agent/readonly-bash-sandbox.json";
+    allowNetworkRead = true;
+    allowTrustedExecute = true;
     globalSettingsPath = "~/.pi/agent/settings.json";
     projectSettingsLookup = "cwd";
+  };
+
+  readonlyBashSandboxConfig.filesystem = {
+    denyRead = [ "~" ".env" ];
+    allowRead = [ "." ];
+    allowWrite = [ "." "/tmp" ] ++ lib.optionals pkgs.stdenv.isDarwin [ "/private/tmp" ];
+    denyWrite = [ ".git" ".env" ];
   };
 
   piSettings = {
@@ -296,6 +323,7 @@ in
     chmod 700 "$HOME/.pi/agent/readonly-bash-approvals"
     rm -f "$HOME/.pi/agent/extensions/readonly-bash-classifier.js" "$HOME/.pi/agent/pi-permissions.jsonc" "$HOME/.pi/agent/extensions/subagent/config.json"
     ${helpers.writeJson "$HOME/.pi/agent/readonly-bash.json" readonlyBashConfig}
+    ${helpers.writeJson "$HOME/.pi/agent/readonly-bash-sandbox.json" readonlyBashSandboxConfig}
     ${writePiSettings}
     ${writePiClaudeStyleToolsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}

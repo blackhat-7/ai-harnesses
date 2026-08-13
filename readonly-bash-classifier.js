@@ -69,6 +69,8 @@ function buildPrepareRequest(config, event, ctx, command) {
     trustedShell: config.trustedShell,
     trustedPath: config.trustedPath,
     approvalDir: config.approvalDir,
+    allowNetworkRead: config.allowNetworkRead === true,
+    allowTrustedExecute: config.allowTrustedExecute === true,
     guard: {
       dangerousEnv: dangerousEnv(process.env),
       shellCommandPrefix: settings.shellCommandPrefix || "",

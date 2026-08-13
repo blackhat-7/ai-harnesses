@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -47,6 +48,23 @@ test("safe calls prepare independently and receive request-id-bound runner comma
   await emit("tool_call", second, { cwd: "/tmp" });
   assert.equal(second.input.command, "READONLY_BASH_REQUEST_ID='2' /runner");
   assert.equal(calls, 2);
+});
+
+test("passes category gates from trusted config", async () => {
+  const dir = tdir();
+  const configPath = writeConfig(dir, { allowNetworkRead: true, allowTrustedExecute: true });
+  let captured;
+  const { pi, emit } = fakePi();
+  createReadonlyBashClassifier({
+    configPath,
+    execPrepare: async (_cli, request) => {
+      captured = request;
+      return { action: "ask", reason: "test" };
+    },
+  })(pi);
+  await emit("tool_call", bashEvent("abc", "go test ./..."), { cwd: dir });
+  assert.equal(captured.allowNetworkRead, true);
+  assert.equal(captured.allowTrustedExecute, true);
 });
 
 test("maps global and project settings plus dangerous env into guard constraints", async () => {
@@ -236,6 +254,32 @@ test("execPrepareDefault rejects timeout, nonzero, and invalid JSON", async () =
   await assert.rejects(() => execPrepareDefault(invalid, { command: "pwd" }, 1000));
 });
 
+test("sandbox wrapper keeps filesystem config and disables SRT network filtering", () => {
+  const dir = tdir();
+  const marker = path.join(dir, "config.json");
+  const modulePath = path.join(dir, "fake-srt.mjs");
+  const settingsPath = path.join(dir, "settings.json");
+  fs.writeFileSync(settingsPath, JSON.stringify({ filesystem: { denyRead: ["~"], allowRead: ["."], allowWrite: ["."], denyWrite: [".git"] } }));
+  fs.writeFileSync(modulePath, `
+    import fs from "node:fs";
+    export const SandboxRuntimeConfigSchema = { parse: (value) => value };
+    export const SandboxManager = {
+      async initialize(config) { fs.writeFileSync(process.env.SANDBOX_CONFIG_MARKER, JSON.stringify(config)); },
+      async wrapWithSandboxArgv(command) { return { argv: ["/bin/bash", "-c", command], env: process.env }; },
+    };
+  `);
+
+  const output = execFileSync(process.execPath, [path.join(repoRoot, "readonly-bash-sandbox.mjs"), modulePath, "--settings", settingsPath, "--", "/bin/sh", "-c", "printf ok"], {
+    encoding: "utf8",
+    env: { ...process.env, SANDBOX_CONFIG_MARKER: marker },
+  });
+  const config = JSON.parse(fs.readFileSync(marker, "utf8"));
+  assert.equal(output, "ok");
+  assert.deepEqual(config.filesystem.allowWrite, ["."]);
+  assert.equal(Object.hasOwn(config.network, "allowedDomains"), false);
+  assert.deepEqual(config.network.deniedDomains, []);
+});
+
 test("standalone flake exports Home Manager module and keeps unknown bash on ask", () => {
   const defaultNix = fs.readFileSync(path.join(repoRoot, "default.nix"), "utf8");
   const piNix = fs.readFileSync(path.join(repoRoot, "pi.nix"), "utf8");
@@ -322,9 +366,21 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /get_subagent_result = "allow";/);
   assert.match(piNix, /steer_subagent = "allow";/);
   assert.match(piNix, /rm -f "\$HOME\/\.pi\/agent\/extensions\/readonly-bash-classifier\.js"/);
-  for (const pkg of ["coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "gnused", "gawk", "nodejs", "python3"]) {
+  for (const pkg of ["bash", "coreutils", "findutils", "gnugrep", "ripgrep", "git", "file", "gnused", "gawk", "go", "nodejs", "python3", "ruff", "nix", "nixfmt", "shellcheck"]) {
     assert.match(piNix, new RegExp(`pkgs\\.${pkg}`));
   }
+  assert.match(piNix, /pkgs\.python3Packages\.pytest/);
+  assert.match(piNix, /pkgs\.sandbox-runtime/);
+  assert.match(piNix, /readonly-bash-sandbox\.mjs/);
+  assert.match(piNix, /sandboxSettingsPath = "~\/\.pi\/agent\/readonly-bash-sandbox\.json";/);
+  assert.match(piNix, /allowNetworkRead = true;/);
+  assert.match(piNix, /allowTrustedExecute = true;/);
+  assert.match(piNix, /denyRead = \[ "~" "\.env" \];/);
+  assert.match(piNix, /allowRead = \[ "\." \];/);
+  assert.match(piNix, /allowWrite = \[ "\." "\/tmp" \]/);
+  assert.match(piNix, /denyWrite = \[ "\.git" "\.env" \];/);
+  assert.doesNotMatch(piNix, /allowedDomains|deniedDomains|strictAllowlist|sandbox_network|sandboxNetworkSettingsPath/);
+  assert.match(piNix, /readonly-bash-sandbox\.json" readonlyBashSandboxConfig/);
 
   assert.match(claudeNix, /hasMcp = name:/);
   assert.match(claudeNix, /defaultMode = "bypassPermissions";/);
