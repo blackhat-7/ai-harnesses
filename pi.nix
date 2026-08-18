@@ -194,6 +194,7 @@ let
     ctx_search = "allow";
     ctx_callgraph = "allow";
     memory = "allow";
+    memory_add = "allow";
     memory_search = "allow";
     session_search = "allow";
     todo = "allow";
@@ -208,6 +209,7 @@ let
     edit = "ask";
   } // lib.optionalAttrs mcpEnabled {
     mcp = "allow";
+    mcpScript = "allow";
   };
   piPermissionSystemConfig = {
     debugLog = false;

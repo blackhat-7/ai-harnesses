@@ -357,6 +357,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
   assert.match(piNix, /workflow = "allow";/);
+  assert.match(piNix, /mcpScript = "allow";/);
   assert.match(piNix, /web_fetch = "allow";/);
   for (const tool of ["ctx_tree", "ctx_compose", "ctx_expand", "ctx_glob", "ctx_search", "ctx_callgraph"]) {
     assert.match(piNix, new RegExp(`${tool} = "allow";`));
