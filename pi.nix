@@ -115,27 +115,6 @@ let
     enableWeakerNetworkIsolation = true;
   };
 
-  piModels = {
-    providers.local-model = {
-      baseUrl = "http://pc:6868/v1";
-      api = "openai-completions";
-      apiKey = "local";
-      compat = {
-        supportsDeveloperRole = false;
-        supportsReasoningEffort = false;
-      };
-      models = [
-        {
-          id = "local-model";
-          name = "Local Model";
-          reasoning = true;
-          contextWindow = 32768;
-          maxTokens = 8192;
-        }
-      ];
-    };
-  };
-
   piSettings = {
     packages = piPackages;
     npmCommand = piNpmCommand;
@@ -144,6 +123,7 @@ let
     extensions = [
       "${./readonly-bash-classifier.js}"
       "${./patches/pi-mouse.js}"
+      "${./patches/local-model-provider.ts}"
     ] ++ lib.optionals (piPackageEnabled "npm:@gotgenes/pi-permission-system") [
       "${./patches/pi-permission-dialog-queue.js}"
       "${./pi-workspace-file-authorizer.js}"
@@ -360,7 +340,7 @@ in
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${writePiLeanCtxConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
-    ${helpers.writeJson "$HOME/.pi/agent/models.json" piModels}
+    rm -f "$HOME/.pi/agent/models.json"
     ${patchPiClaudeStyleTools}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}
     ${helpers.writeJson "$HOME/.pi/agent/keybindings.json" piKeybindings}
