@@ -135,6 +135,7 @@ let
       "deepseek/*"
       "anthropic/*"
       "kimi-coding/*"
+      "llama.cpp/*"
     ];
     compaction.enabled = true;
   } // lib.optionalAttrs (piPackageEnabled "npm:@codexstar/pi-listen") {
@@ -318,6 +319,8 @@ let
   '';
 in
 {
+  home.sessionVariables.LLAMA_BASE_URL = lib.mkDefault "http://pc:6868";
+
   home.packages = [
     readonlyBashPkg
     readonlyBashSandbox
@@ -338,6 +341,7 @@ in
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${writePiLeanCtxConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
+    rm -f "$HOME/.pi/agent/models.json"
     ${patchPiClaudeStyleTools}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}
     ${helpers.writeJson "$HOME/.pi/agent/keybindings.json" piKeybindings}
