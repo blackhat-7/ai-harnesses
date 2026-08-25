@@ -78,6 +78,7 @@ let
       "npm:pi-rewind"
       "npm:pi-intercom"
       "npm:pi-autoname"
+      "npm:pi-session-move"
       "npm:pi-bar"
       "npm:pi-ffmpeg"
       "npm:pi-claude-style-tools"
