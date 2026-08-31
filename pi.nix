@@ -80,10 +80,7 @@ let
       "npm:pi-autoname"
       "npm:pi-session-move"
       "npm:pi-bar"
-      "npm:pi-ffmpeg"
       "npm:pi-claude-style-tools"
-      "git:github.com/blackhat-7/pi-dynamic-workflows@permission-prompts"
-      "npm:pi-vim"
       "npm:pi-hermes-memory"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
@@ -201,7 +198,6 @@ let
     memory_search = "allow";
     session_search = "allow";
     todo = "allow";
-    workflow = "allow";
     structured_output = "allow";
     subagent = "allow";
     get_subagent_result = "allow";
