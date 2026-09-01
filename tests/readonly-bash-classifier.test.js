@@ -336,7 +336,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /patch-pi-listen-pauses\.js/);
   assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);
   assert.doesNotMatch(piNix, /"npm:pi-zentui"/);
-  assert.match(piNix, /"git:github\.com\/blackhat-7\/pi-dynamic-workflows@permission-prompts"/);
+  assert.doesNotMatch(piNix, /"git:github\.com\/blackhat-7\/pi-dynamic-workflows@permission-prompts"/);
   assert.match(piNix, /"git:github\.com\/DietrichGebert\/ponytail"/);
   assert.doesNotMatch(piNix, /"npm:pi-subagents"/);
   assert.doesNotMatch(piNix, /"npm:pi-permission-system"/);
@@ -356,7 +356,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /yoloMode = isYolo;/);
   assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
-  assert.match(piNix, /workflow = "allow";/);
+  assert.doesNotMatch(piNix, /workflow = "allow";/);
   assert.match(piNix, /mcpScript = "allow";/);
   assert.match(piNix, /web_fetch = "allow";/);
   for (const tool of ["ctx_tree", "ctx_compose", "ctx_expand", "ctx_glob", "ctx_search", "ctx_callgraph"]) {
