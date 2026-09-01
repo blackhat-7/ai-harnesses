@@ -134,7 +134,7 @@ let
       "deepseek/*"
       "anthropic/*"
       "kimi-coding/*"
-      "local-model/*"
+      "local-models/*"
     ];
     compaction.enabled = true;
   } // lib.optionalAttrs (piPackageEnabled "npm:@codexstar/pi-listen") {
