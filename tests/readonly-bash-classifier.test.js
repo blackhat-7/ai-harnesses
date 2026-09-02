@@ -327,6 +327,10 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"\$\{\.\/pi-workspace-file-authorizer\.js\}"/);
   assert.match(piNix, /authorizerChain = lib\.optionals \(!isYolo\) \[ "workspace-file-edits" \];/);
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
+  assert.match(piNix, /"npm:@czottmann\/pi-automode"/);
+  assert.match(piNix, /classifierModel = "openai-codex\/gpt-5\.6-sol";/);
+  assert.match(piNix, /classifierReasoningLevel = "low";/);
+  assert.match(piNix, /writePiAutomodeConfig/);
   assert.match(piNix, /builtins\.filter piPackageEnabled/);
   assert.match(piNix, /removeDisabledPiPackages = lib\.concatMapStringsSep/);
   assert.match(piNix, /npm_config_legacy_peer_deps=true "\$npm_bin\/pi" remove/);

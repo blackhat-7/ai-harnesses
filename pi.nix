@@ -164,6 +164,10 @@ let
     toolBackground = "transparent";
     groupToolCalls = true;
   };
+  piAutomodeConfig.autoMode = {
+    classifierModel = "openai-codex/gpt-5.6-sol";
+    classifierReasoningLevel = "low";
+  };
   piYoloPermission = {
     "*" = "allow";
   };
@@ -269,6 +273,10 @@ let
   writePiLeanCtxConfig = lib.optionalString (piPackageEnabled "npm:pi-lean-ctx") ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-lean-ctx/config.json" piLeanCtxConfig}
   '';
+  writePiAutomodeConfig = lib.optionalString (piPackageEnabled "npm:@czottmann/pi-automode") ''
+    mkdir -p "$HOME/.pi/agent/extensions/pi-automode"
+    ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-automode/config.json" piAutomodeConfig}
+  '';
   writePiClaudeStyleToolsSettings = lib.optionalString (piPackageEnabled "npm:pi-claude-style-tools") ''
     settings="$HOME/.pi/settings.json"
     settings_tmp="$(mktemp)"
@@ -338,6 +346,7 @@ in
     ${writePiClaudeStyleToolsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
     ${writePiLeanCtxConfig}
+    ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     rm -f "$HOME/.pi/agent/models.json"
     ${patchPiClaudeStyleTools}
