@@ -82,6 +82,7 @@ let
       "npm:pi-bar"
       "npm:pi-claude-style-tools"
       "npm:pi-hermes-memory"
+      "npm:@czottmann/pi-automode"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
       "git:github.com/DietrichGebert/ponytail"
