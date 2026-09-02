@@ -167,6 +167,7 @@ let
   piAutomodeConfig.autoMode = {
     classifierModel = "openai-codex/gpt-5.6-sol";
     classifierReasoningLevel = "low";
+    allowInsideWorkingDirectory = true;
   };
   piYoloPermission = {
     "*" = "allow";
