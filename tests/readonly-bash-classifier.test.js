@@ -294,7 +294,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(flakeNix, /url = "github:blackhat-7\/readonly-bash\/main";/);
   assert.match(defaultNix, /options\.aiHarnesses =/);
   assert.match(defaultNix, /mode = lib\.mkOption/);
-  assert.match(defaultNix, /lib\.types\.enum \[ "restricted" "yolo" \]/);
+  assert.match(defaultNix, /lib\.types\.enum \[ "restricted" "auto" "yolo" \]/);
   assert.match(defaultNix, /default = "restricted";/);
   assert.match(defaultNix, /mcp = \{/);
   assert.match(defaultNix, /enabledServers/);
@@ -322,10 +322,12 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.doesNotMatch(piNix, /patch-pi-subagents-footer-click\.js/);
   assert.match(piNix, /lib\.optionals mcpEnabled \[/);
   assert.match(piNix, /"npm:@gotgenes\/pi-subagents"/);
+  assert.match(piNix, /piPermissionSystemEnabled = mode == "restricted"/);
+  assert.match(piNix, /piAutomodeEnabled = mode == "auto"/);
   assert.match(piNix, /"npm:@gotgenes\/pi-permission-system"/);
   assert.match(piNix, /"\$\{\.\/patches\/pi-permission-dialog-queue\.js\}"/);
-  assert.match(piNix, /"\$\{\.\/pi-workspace-file-authorizer\.js\}"/);
-  assert.match(piNix, /authorizerChain = lib\.optionals \(!isYolo\) \[ "workspace-file-edits" \];/);
+  assert.doesNotMatch(piNix, /pi-workspace-file-authorizer/);
+  assert.doesNotMatch(piNix, /authorizerChain/);
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
   assert.match(piNix, /"npm:@czottmann\/pi-automode"/);
   assert.match(piNix, /classifierModel = "openai-codex\/gpt-5\.6-sol";/);
@@ -356,9 +358,8 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /writePiClaudeStyleToolsSettings/);
   assert.match(piNix, /settings="\$HOME\/\.pi\/settings\.json"|settings = "\$HOME\/\.pi\/settings\.json"|settings=\"\$HOME\/\.pi\/settings\.json\"/);
   assert.doesNotMatch(piNix, /registerBatchTool/);
-  assert.match(piNix, /piYoloPermission = \{\s*"\*" = "allow";/);
-  assert.match(piNix, /yoloMode = isYolo;/);
-  assert.match(piNix, /permission = if isYolo then piYoloPermission else piRestrictedPermission;/);
+  assert.doesNotMatch(piNix, /piYoloPermission|yoloMode|isYolo/);
+  assert.match(piNix, /permission = piRestrictedPermission;/);
   assert.match(piNix, /"READONLY_BASH_REQUEST_ID=\* \$\{readonlyBashRunnerCommandString\}" = "allow";/);
   assert.doesNotMatch(piNix, /workflow = "allow";/);
   assert.match(piNix, /mcpScript = "allow";/);

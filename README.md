@@ -25,6 +25,7 @@ Optional mode and MCP selection:
 
 ```nix
 aiHarnesses.mode = "restricted"; # default: ask for writes/unknown bash
+# aiHarnesses.mode = "auto";     # Pi uses pi-automode without permission prompts
 # aiHarnesses.mode = "yolo";     # container/sandbox use: allow broadly
 
 aiHarnesses.mcp.enable = true;         # false writes empty MCP configs

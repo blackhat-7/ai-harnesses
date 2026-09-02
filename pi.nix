@@ -9,11 +9,13 @@
 let
   discardContext = builtins.unsafeDiscardStringContext;
   helpers = import ./helpers.nix { inherit pkgs; };
-  isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
+  mode = config.aiHarnesses.mode or "restricted";
   selectedMcpServers = config.aiHarnesses.mcp.enabledServers or null;
   mcpEnabled = (config.aiHarnesses.mcp.enable or true) && selectedMcpServers != [ ];
   disabledPiPackages = config.aiHarnesses.pi.disabledPackages or [ ];
   piPackageEnabled = source: !builtins.elem source disabledPiPackages;
+  piPermissionSystemEnabled = mode == "restricted" && piPackageEnabled "npm:@gotgenes/pi-permission-system";
+  piAutomodeEnabled = mode == "auto" && piPackageEnabled "npm:@czottmann/pi-automode";
 
   readonlyBashSrc = aiHarnessesInputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
@@ -67,8 +69,10 @@ let
     "beautiful-mermaid"
   ] ++ lib.optionals (piPackageEnabled "npm:pi-lean-ctx") [ "lean-ctx-bin" ];
   piPackages = builtins.filter piPackageEnabled (
-    lib.optionals mcpEnabled [ "npm:pi-mcp-adapter" ] ++ [
-      "npm:@gotgenes/pi-permission-system"
+    lib.optionals mcpEnabled [ "npm:pi-mcp-adapter" ]
+    ++ lib.optionals piPermissionSystemEnabled [ "npm:@gotgenes/pi-permission-system" ]
+    ++ lib.optionals piAutomodeEnabled [ "npm:@czottmann/pi-automode" ]
+    ++ [
       "npm:pi-web-access"
       "npm:@gotgenes/pi-subagents"
       "npm:pi-mermaid"
@@ -82,7 +86,6 @@ let
       "npm:pi-bar"
       "npm:pi-claude-style-tools"
       "npm:pi-hermes-memory"
-      "npm:@czottmann/pi-automode"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
       "git:github.com/DietrichGebert/ponytail"
@@ -123,9 +126,8 @@ let
       "${./readonly-bash-classifier.js}"
       "${./patches/pi-mouse.js}"
       "${./patches/local-model-provider.ts}"
-    ] ++ lib.optionals (piPackageEnabled "npm:@gotgenes/pi-permission-system") [
+    ] ++ lib.optionals piPermissionSystemEnabled [
       "${./patches/pi-permission-dialog-queue.js}"
-      "${./pi-workspace-file-authorizer.js}"
     ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
@@ -168,9 +170,6 @@ let
     classifierModel = "openai-codex/gpt-5.6-sol";
     classifierReasoningLevel = "low";
     allowInsideWorkingDirectory = true;
-  };
-  piYoloPermission = {
-    "*" = "allow";
   };
   piRestrictedPermission = {
     "*" = "ask";
@@ -220,9 +219,7 @@ let
   piPermissionSystemConfig = {
     debugLog = false;
     permissionReviewLog = true;
-    yoloMode = isYolo;
-    authorizerChain = lib.optionals (!isYolo) [ "workspace-file-edits" ];
-    permission = if isYolo then piYoloPermission else piRestrictedPermission;
+    permission = piRestrictedPermission;
   };
   piLeanCtxConfig = {
     mode = "additive";
@@ -274,7 +271,10 @@ let
   writePiLeanCtxConfig = lib.optionalString (piPackageEnabled "npm:pi-lean-ctx") ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-lean-ctx/config.json" piLeanCtxConfig}
   '';
-  writePiAutomodeConfig = lib.optionalString (piPackageEnabled "npm:@czottmann/pi-automode") ''
+  writePiPermissionSystemConfig = lib.optionalString piPermissionSystemEnabled ''
+    ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
+  '';
+  writePiAutomodeConfig = lib.optionalString piAutomodeEnabled ''
     mkdir -p "$HOME/.pi/agent/extensions/pi-automode"
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-automode/config.json" piAutomodeConfig}
   '';
@@ -345,7 +345,7 @@ in
     ${helpers.writeJson "$HOME/.pi/agent/readonly-bash-sandbox.json" readonlyBashSandboxConfig}
     ${writePiSettings}
     ${writePiClaudeStyleToolsSettings}
-    ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
+    ${writePiPermissionSystemConfig}
     ${writePiLeanCtxConfig}
     ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}

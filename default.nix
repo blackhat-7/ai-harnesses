@@ -22,7 +22,7 @@
 
   options.aiHarnesses = {
     mode = lib.mkOption {
-      type = lib.types.enum [ "restricted" "yolo" ];
+      type = lib.types.enum [ "restricted" "auto" "yolo" ];
       default = "restricted";
       description = "Permission profile for generated AI harness configs.";
     };
