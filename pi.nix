@@ -209,6 +209,7 @@ let
   } // lib.optionalAttrs mcpEnabled {
     mcp = "allow";
     mcpScript = "allow";
+    "mcp__*" = "allow";
   };
   piPermissionSystemConfig = {
     debugLog = false;
