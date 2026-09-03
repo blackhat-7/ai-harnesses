@@ -118,9 +118,6 @@ let
     aftershoot-mcp = {
       type = "http";
       url = "https://heimdall.aftershoot.dev/mcp";
-      headers = {
-        Authorization = "Bearer \${AFTERSHOOT_MCP_API_KEY}";
-      };
     };
     atlassian = {
       type = "http";
@@ -172,9 +169,7 @@ let
       bearerTokenEnv = "GITHUB_MCP_TOKEN";
     }
     // lib.optionalAttrs (name == "aftershoot-mcp") {
-      headers = builtins.removeAttrs (base.headers or { }) [ "Authorization" ];
-      auth = "bearer";
-      bearerTokenEnv = "AFTERSHOOT_MCP_API_KEY";
+      auth = "oauth";
     }
     // lib.optionalAttrs (name == "atlassian") {
       auth = "oauth";

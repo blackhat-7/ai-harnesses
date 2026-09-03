@@ -53,8 +53,8 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Pi config lives in `pi.nix`.
 - Global engineering guidance lives in `files/AGENTS.md` and is linked to each harness's standard user-level instruction path.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
-- Remote MCP API keys are referenced through environment variables such as `GITHUB_MCP_TOKEN` and `AFTERSHOOT_MCP_API_KEY`.
-- Atlassian/Jira/Confluence uses the official Atlassian Rovo MCP endpoint (`https://mcp.atlassian.com/v1/mcp/authv2`) with OAuth. Pi requests only Jira/Confluence read/search scopes and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
+- GitHub MCP auth uses the `GITHUB_MCP_TOKEN` environment variable.
+- Aftershoot and Atlassian MCP auth use OAuth. Pi requests only Jira/Confluence read/search scopes for Atlassian and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
 - Pi uses `pi-lean-ctx` in additive, lean-profile mode for compressed reads and persistent caching while keeping native bash on the readonly-bash permission path.
 - `code-review-graph` is available through the shared MCP catalog and runs lazily via `uvx`.
