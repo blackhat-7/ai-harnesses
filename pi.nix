@@ -74,6 +74,7 @@ let
     ++ lib.optionals piAutomodeEnabled [ "npm:@czottmann/pi-automode" ]
     ++ [
       "npm:pi-web-access"
+      "npm:@narumitw/pi-btw"
       "npm:@gotgenes/pi-subagents"
       "npm:pi-mermaid"
       "npm:@juicesharp/rpiv-todo"
