@@ -28,13 +28,19 @@ async function discoverModels(signal?: AbortSignal) {
       id,
       name: id,
       reasoning: true,
+      thinkingLevelMap: {
+        off: "none",
+        ...(id.includes("Qwen3.8")
+          ? { minimal: "low", high: "xhigh", xhigh: "xhigh" }
+          : {}),
+      },
       input: ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: model.meta?.n_ctx ?? model.meta?.n_ctx_train ?? 128000,
       maxTokens: 8192,
       compat: {
         supportsDeveloperRole: false,
-        supportsReasoningEffort: false,
+        supportsReasoningEffort: true,
       },
     };
   });
