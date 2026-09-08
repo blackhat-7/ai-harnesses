@@ -133,6 +133,8 @@ let
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
     defaultProvider = "openai-codex";
+    defaultModel = "gpt-6-astra";
+    defaultThinkingLevel = "low";
     enabledModels = [
       "openai-codex/*"
       "deepseek/*"
