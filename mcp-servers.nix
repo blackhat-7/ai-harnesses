@@ -123,6 +123,10 @@ let
       type = "http";
       url = "https://mcp.atlassian.com/v1/mcp/authv2";
     };
+    posthog = {
+      type = "http";
+      url = "https://mcp.posthog.com/mcp?readonly=true&mode=tools";
+    };
     playwright = {
       command = "npx";
       args = [ "@playwright/mcp@latest" ];
@@ -168,7 +172,7 @@ let
       auth = "bearer";
       bearerTokenEnv = "GITHUB_MCP_TOKEN";
     }
-    // lib.optionalAttrs (name == "aftershoot-mcp") {
+    // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" ]) {
       auth = "oauth";
     }
     // lib.optionalAttrs (name == "atlassian") {

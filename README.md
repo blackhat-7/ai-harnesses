@@ -66,6 +66,14 @@ nix build .#homeConfigurations.<name>.activationPackage \
 3. Apply this Home Manager module so the `atlassian` MCP server is written.
 4. In Pi, run `/mcp-auth atlassian` or `mcp({ action: "auth-start", server: "atlassian" })`, open the URL, sign in, then complete with `mcp({ action: "auth-complete", server: "atlassian", args: '{"redirectUrl":"PASTE_REDIRECT_URL"}' })`.
 
+## PostHog MCP auth and read-only setup
+
+- PostHog uses browser OAuth; no API key, client ID, or client secret needs to be stored here. Sign in with an account that has access to the desired PostHog project. PostHog routes US/EU accounts automatically.
+- Apply this Home Manager module, then run `/mcp-auth posthog` in Pi (or use your harness's MCP OAuth login). If `aiHarnesses.mcp.enabledServers` is an explicit list, add `"posthog"` to it first. Credentials remain local to each harness.
+- The shared URL uses `readonly=true&mode=tools`: PostHog excludes create/update/delete tools server-side and exposes individual read tools instead of the generic `exec` interface. This is a session restriction, not a reduction of your account's underlying permissions.
+- Optionally append `&project_id=YOUR_PROJECT_ID` to pin the connection to one project and remove the project/organization switching tools.
+- See [PostHog's auth and read-only documentation](https://posthog.com/docs/model-context-protocol/faq).
+
 ## readonly-bash auto-approval
 
 - Home Manager builds the generic Go core with Nix and writes the runtime config to `~/.pi/agent/readonly-bash.json`.
