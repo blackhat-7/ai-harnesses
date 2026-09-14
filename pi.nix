@@ -139,7 +139,7 @@ let
     enabledModels = [
       "openai-codex/*"
       "deepseek/*"
-      "anthropic/*"
+      "claude-bridge/*"
       "kimi-coding/*"
       "local-models/*"
     ];
@@ -236,6 +236,13 @@ let
       "shell"
     ];
   };
+  piClaudeBridgeConfig = {
+    provider.plan = "max";
+    askClaude = {
+      enabled = true;
+      defaultMode = "full";
+    };
+  };
   piSubagentsSettings = {
     maxConcurrent = 4;
     defaultMaxTurns = 50;
@@ -274,6 +281,9 @@ let
 
   writePiLeanCtxConfig = lib.optionalString (piPackageEnabled "npm:pi-lean-ctx") ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-lean-ctx/config.json" piLeanCtxConfig}
+  '';
+  writePiClaudeBridgeConfig = lib.optionalString (piPackageEnabled "npm:pi-claude-bridge") ''
+    ${helpers.writeJson "$HOME/.pi/agent/claude-bridge.json" piClaudeBridgeConfig}
   '';
   writePiPermissionSystemConfig = lib.optionalString piPermissionSystemEnabled ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
@@ -351,6 +361,7 @@ in
     ${writePiClaudeStyleToolsSettings}
     ${writePiPermissionSystemConfig}
     ${writePiLeanCtxConfig}
+    ${writePiClaudeBridgeConfig}
     ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     rm -f "$HOME/.pi/agent/models.json"
