@@ -89,6 +89,7 @@ let
       "npm:pi-hermes-memory"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
+      "npm:pi-claude-bridge"
       "git:github.com/DietrichGebert/ponytail"
     ]
   );
