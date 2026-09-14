@@ -44,7 +44,7 @@ test("provider exposes discovered llama.cpp models at startup", async () => {
   }
 });
 
-test("startup gives up on an unreachable host instead of hanging", async () => {
+test("startup and refresh give up on an unreachable host instead of hanging", async () => {
   const originalFetch = global.fetch;
   global.fetch = (_url, init) =>
     new Promise((_resolve, reject) => {
@@ -60,6 +60,7 @@ test("startup gives up on an unreachable host instead of hanging", async () => {
     });
 
     assert.deepEqual(provider.models, []);
+    await assert.rejects(provider.refreshModels({ signal: new AbortController().signal }));
   } finally {
     global.fetch = originalFetch;
   }

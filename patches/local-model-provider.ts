@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const BASE_URL = "http://pc:6868/v1";
-// Startup must not block on an unreachable host; the LAN server answers well under this.
-const STARTUP_DISCOVERY_TIMEOUT_MS = 1000;
+// Startup awaits discovery (directly and via refreshModels); the LAN server answers well under this.
+const DISCOVERY_TIMEOUT_MS = 1000;
 
 type ModelResponse = {
   data: Array<{
@@ -20,7 +20,10 @@ export function modelId(id: string): string {
 }
 
 async function discoverModels(signal?: AbortSignal) {
-  const response = await fetch(`${BASE_URL}/models`, { signal });
+  const timeout = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS);
+  const response = await fetch(`${BASE_URL}/models`, {
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  });
   if (!response.ok) throw new Error(`Local model discovery failed: HTTP ${response.status}`);
 
   const { data } = (await response.json()) as ModelResponse;
@@ -51,7 +54,7 @@ async function discoverModels(signal?: AbortSignal) {
 export default async function (pi: ExtensionAPI) {
   let models: Awaited<ReturnType<typeof discoverModels>> = [];
   try {
-    models = await discoverModels(AbortSignal.timeout(STARTUP_DISCOVERY_TIMEOUT_MS));
+    models = await discoverModels();
   } catch {}
 
   pi.registerProvider("local-models", {
