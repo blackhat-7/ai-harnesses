@@ -121,7 +121,7 @@ let
     };
     atlassian = {
       type = "http";
-      url = "https://mcp.atlassian.com/v1/mcp/authv2";
+      url = "https://mcp.atlassian.com/v1/mcp";
     };
     posthog = {
       type = "http";
