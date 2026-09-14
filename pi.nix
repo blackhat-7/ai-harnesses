@@ -133,8 +133,8 @@ let
     ];
     shellPath = piReadonlyBashTrustedShellString;
     shellCommandPrefix = "";
-    defaultProvider = "openai-codex";
-    defaultModel = "gpt-6-astra";
+    defaultProvider = "claude-bridge";
+    defaultModel = "claude-opus-5";
     defaultThinkingLevel = "low";
     enabledModels = [
       "openai-codex/*"
