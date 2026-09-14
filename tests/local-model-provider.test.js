@@ -43,3 +43,24 @@ test("provider exposes discovered llama.cpp models at startup", async () => {
     global.fetch = originalFetch;
   }
 });
+
+test("startup gives up on an unreachable host instead of hanging", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = (_url, init) =>
+    new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => reject(init.signal.reason));
+    });
+
+  try {
+    let provider;
+    await registerLocalModels({
+      registerProvider(_id, config) {
+        provider = config;
+      },
+    });
+
+    assert.deepEqual(provider.models, []);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

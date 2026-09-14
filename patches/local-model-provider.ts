@@ -1,6 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const BASE_URL = "http://pc:6868/v1";
+// Startup must not block on an unreachable host; the LAN server answers well under this.
+const STARTUP_DISCOVERY_TIMEOUT_MS = 1000;
 
 type ModelResponse = {
   data: Array<{
@@ -49,7 +51,7 @@ async function discoverModels(signal?: AbortSignal) {
 export default async function (pi: ExtensionAPI) {
   let models: Awaited<ReturnType<typeof discoverModels>> = [];
   try {
-    models = await discoverModels();
+    models = await discoverModels(AbortSignal.timeout(STARTUP_DISCOVERY_TIMEOUT_MS));
   } catch {}
 
   pi.registerProvider("local-models", {
