@@ -7,7 +7,9 @@
 let
   helpers = import ./helpers.nix { inherit pkgs; };
   mcpData = import ./mcp-servers.nix { inherit lib config; };
-  isYolo = (config.aiHarnesses.mode or "restricted") == "yolo";
+  mode = config.aiHarnesses.mode or "restricted";
+  isYolo = mode == "yolo";
+  isRestricted = mode == "restricted";
 
   hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
   claudeMcpAllows =
@@ -65,7 +67,7 @@ let
           deny = lib.optionals (hasMcp "atlassian") (
             map (tool: "mcp__atlassian__${tool}") mcpData.atlassianWriteTools
           );
-          ask = [
+          ask = lib.optionals isRestricted [
             "Edit"
             "Write"
           ];
@@ -83,6 +85,6 @@ in
     chmod +x "$HOME/.claude/statusline-command.sh"
     rm -f "$HOME/.claude/notify.sh"
     ${helpers.writeJson "$HOME/.claude/settings.json" claudeSettings}
-    ${helpers.writeJson "$HOME/.claude.json" { mcpServers = mcpData.mcpServers; }}
+    ${helpers.mergeJson "$HOME/.claude.json" { mcpServers = mcpData.mcpServers; }}
   '';
 }
