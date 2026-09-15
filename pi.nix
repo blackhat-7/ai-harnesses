@@ -171,7 +171,7 @@ let
     groupToolCalls = true;
   };
   piAutomodeConfig.autoMode = {
-    classifierModel = "openai-codex/gpt-5.6-sol";
+    classifierModel = "claude-bridge/claude-haiku-4-5";
     classifierReasoningLevel = "low";
     allowInsideWorkingDirectory = true;
   };
