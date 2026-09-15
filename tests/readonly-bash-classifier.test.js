@@ -11,6 +11,8 @@ const { PATCH_MARKER, patchSource: patchClaudeStyleCodeBlocksSource } = require(
 const {
   PATCH_MARKER: CLAUDE_BRIDGE_PATCH_MARKER,
   patchSource: patchClaudeBridgeSource,
+  promptCaptureEdits: claudeBridgePromptCaptureEdits,
+  indexEdits: claudeBridgeIndexEdits,
 } = require(path.join(repoRoot, "patches/patch-pi-claude-bridge-unrecorded-prompt.js"));
 
 async function loadOpenCodePlugin() {
@@ -336,6 +338,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /"npm:@czottmann\/pi-automode"/);
   assert.match(piNix, /classifierModel = "claude-bridge\/claude-haiku-4-5";/);
   assert.match(piNix, /classifierReasoningLevel = "low";/);
+  assert.match(piNix, /classifierTimeoutMs = 60000;/);
   assert.match(piNix, /writePiAutomodeConfig/);
   assert.match(piNix, /builtins\.filter piPackageEnabled/);
   assert.match(piNix, /removeDisabledPiPackages = lib\.concatMapStringsSep/);
@@ -456,8 +459,13 @@ test("pi-claude-style-tools patch simplifies copy chrome", () => {
 
 test("pi-claude-bridge patch forwards unrecorded system prompts instead of throwing", () => {
   const source = [
+    "export type PromptCapture = PromptCaptureInput & {",
+    "\tassembledPrompt: string;",
+    "\t/** Exact previously assembled prompts embedded in `custom`. */",
+    "\tinherited: InheritedPrompt[];",
+    "};",
+    "",
     "\tresolveOrDerive(systemPrompt?: string): PromptCapture | undefined {",
-    "\t\tif (!systemPrompt) return undefined;",
     "\t\tconst exact = this.captures.get(systemPrompt);",
     "\t\tif (exact) {",
     "\t\t\tthis.touch(systemPrompt, exact);",
@@ -478,22 +486,47 @@ test("pi-claude-bridge patch forwards unrecorded system prompts instead of throw
     "\t}",
   ].join("\n") + "\n";
 
-  const patched = patchClaudeBridgeSource(source);
+  const patched = patchClaudeBridgeSource(source, claudeBridgePromptCaptureEdits);
   assert.equal(patched.status, "patched");
   assert.match(patched.source, new RegExp(CLAUDE_BRIDGE_PATCH_MARKER));
   assert.doesNotMatch(patched.source, /throw new Error\(/);
   assert.doesNotMatch(patched.source, /prompt-capture: no capture/);
-  // The unrecorded prompt is carried through as `custom`, not dropped.
-  assert.match(patched.source, /inherited: \[\] \};/);
+  // The unrecorded prompt is carried through as `custom` and flagged, not dropped.
+  assert.match(patched.source, /unrecorded\?: boolean;/);
+  assert.match(patched.source, /inherited: \[\], unrecorded: true \};/);
   // The embedded-match return below the patched branch is left intact.
   assert.match(patched.source, /inherited: embedded \};/);
-  assert.equal(patchClaudeBridgeSource(patched.source).status, "already-patched");
+  assert.equal(patchClaudeBridgeSource(patched.source, claudeBridgePromptCaptureEdits).status, "already-patched");
+});
+
+test("pi-claude-bridge patch sends an unrecorded prompt instead of Claude Code's preset", () => {
+  const source = [
+    "\tconst queryOptions = {",
+    "\t\tcwd,",
+    "\t\ttools: [],",
+    "\t\tsystemPrompt: {",
+    "\t\t\ttype: \"preset\", preset: \"claude_code\",",
+    "\t\t\tappend: systemPromptAppend ? systemPromptAppend : undefined,",
+    "\t\t},",
+    "\t\textraArgs,",
+    "\t};",
+  ].join("\n") + "\n";
+
+  const patched = patchClaudeBridgeSource(source, claudeBridgeIndexEdits);
+  assert.equal(patched.status, "patched");
+  assert.match(patched.source, /systemPrompt: promptCapture\?\.unrecorded && systemPromptAppend/);
+  // Recorded prompts still get the preset with the portable parts appended.
+  assert.match(patched.source, /type: "preset", preset: "claude_code",/);
+  assert.match(patched.source, /append: systemPromptAppend \? systemPromptAppend : undefined,/);
+  assert.equal(patchClaudeBridgeSource(patched.source, claudeBridgeIndexEdits).status, "already-patched");
 });
 
 test("pi-claude-bridge patch skips cleanly when upstream shape changes", () => {
-  const result = patchClaudeBridgeSource("export class PromptCaptures {}\n");
-  assert.equal(result.status, "skipped");
-  assert.equal(result.source, "export class PromptCaptures {}\n");
+  for (const edits of [claudeBridgePromptCaptureEdits, claudeBridgeIndexEdits]) {
+    const result = patchClaudeBridgeSource("export class PromptCaptures {}\n", edits);
+    assert.equal(result.status, "skipped");
+    assert.equal(result.source, "export class PromptCaptures {}\n");
+  }
 });
 
 test("firstShellWord parses quoted and escaped runner paths", () => {

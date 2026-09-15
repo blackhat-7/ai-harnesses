@@ -173,6 +173,9 @@ let
   piAutomodeConfig.autoMode = {
     classifierModel = "claude-bridge/claude-haiku-4-5";
     classifierReasoningLevel = "low";
+    # Each bridge call spawns a Claude Code process: ~5s floor measured, 14-20s with
+    # a full classifier prompt. The 20s default times out on its own round trip.
+    classifierTimeoutMs = 60000;
     allowInsideWorkingDirectory = true;
   };
   piRestrictedPermission = {
