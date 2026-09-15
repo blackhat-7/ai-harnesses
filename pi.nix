@@ -324,6 +324,12 @@ let
   patchPiListen = lib.optionalString (piPackageEnabled "npm:@codexstar/pi-listen") ''
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-listen-pauses.js}
   '';
+  # pi-automode's classifier hands the bridge a system prompt pi never assembled,
+  # which upstream rejects rather than forward; automode then fails closed and
+  # blocks every tool call.
+  patchPiClaudeBridge = lib.optionalString (piPackageEnabled "npm:pi-claude-bridge") ''
+    ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-bridge-unrecorded-prompt.js}
+  '';
   removeDisabledPiPackages = lib.concatMapStringsSep "\n" (source: ''
     if ${pkgs.jq}/bin/jq -e --arg source ${lib.escapeShellArg source} \
       'any(.packages[]?; (if type == "string" then . else .source end) == $source)' \
@@ -346,6 +352,7 @@ let
     ${patchPiClaudeStyleTools}
     ${patchPiSubagents}
     ${patchPiListen}
+    ${patchPiClaudeBridge}
   '';
 in
 {

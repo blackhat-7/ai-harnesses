@@ -8,6 +8,10 @@ const path = require("node:path");
 const repoRoot = path.join(__dirname, "..");
 const { createReadonlyBashClassifier, execPrepareDefault, expandPath, firstShellWord } = require(path.join(repoRoot, "readonly-bash-classifier.js"));
 const { PATCH_MARKER, patchSource: patchClaudeStyleCodeBlocksSource } = require(path.join(repoRoot, "patches/patch-pi-claude-style-code-blocks.js"));
+const {
+  PATCH_MARKER: CLAUDE_BRIDGE_PATCH_MARKER,
+  patchSource: patchClaudeBridgeSource,
+} = require(path.join(repoRoot, "patches/patch-pi-claude-bridge-unrecorded-prompt.js"));
 
 async function loadOpenCodePlugin() {
   return import(path.join(repoRoot, "readonly-bash-opencode-plugin.mjs"));
@@ -330,7 +334,7 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.doesNotMatch(piNix, /authorizerChain/);
   assert.match(piNix, /"npm:pi-claude-style-tools"/);
   assert.match(piNix, /"npm:@czottmann\/pi-automode"/);
-  assert.match(piNix, /classifierModel = "openai-codex\/gpt-5\.6-sol";/);
+  assert.match(piNix, /classifierModel = "claude-bridge\/claude-haiku-4-5";/);
   assert.match(piNix, /classifierReasoningLevel = "low";/);
   assert.match(piNix, /writePiAutomodeConfig/);
   assert.match(piNix, /builtins\.filter piPackageEnabled/);
@@ -338,6 +342,9 @@ test("standalone flake exports Home Manager module and keeps unknown bash on ask
   assert.match(piNix, /npm_config_legacy_peer_deps=true "\$npm_bin\/pi" remove/);
   assert.match(piNix, /patchPiClaudeStyleTools = lib\.optionalString \(piPackageEnabled "npm:pi-claude-style-tools"\)/);
   assert.match(piNix, /patchPiSubagents = lib\.optionalString \(piPackageEnabled "npm:@gotgenes\/pi-subagents"\)/);
+  assert.match(piNix, /patchPiClaudeBridge = lib\.optionalString \(piPackageEnabled "npm:pi-claude-bridge"\)/);
+  assert.match(piNix, /node \$\{\.\/patches\/patch-pi-claude-bridge-unrecorded-prompt\.js\}/);
+  assert.match(piNix, /^\s+\$\{patchPiClaudeBridge\}$/m);
   assert.match(piNix, /patchPiListen = lib\.optionalString \(piPackageEnabled "npm:@codexstar\/pi-listen"\)/);
   assert.match(piNix, /patch-pi-listen-pauses\.js/);
   assert.doesNotMatch(piNix, /"npm:@vanillagreen\/pi-tool-renderer"/);
@@ -445,6 +452,48 @@ test("pi-claude-style-tools patch simplifies copy chrome", () => {
   assert.doesNotMatch(patched.source, /return ` ● \$\{line\}`/);
   assert.match(patched.source, /boxRenderedCodeBlock\(body, language, width\)/);
   assert.equal(patchClaudeStyleCodeBlocksSource(patched.source).status, "already-patched");
+});
+
+test("pi-claude-bridge patch forwards unrecorded system prompts instead of throwing", () => {
+  const source = [
+    "\tresolveOrDerive(systemPrompt?: string): PromptCapture | undefined {",
+    "\t\tif (!systemPrompt) return undefined;",
+    "\t\tconst exact = this.captures.get(systemPrompt);",
+    "\t\tif (exact) {",
+    "\t\t\tthis.touch(systemPrompt, exact);",
+    "\t\t\treturn exact;",
+    "\t\t}",
+    "",
+    "\t\tconst embedded = this.findInheritedPrompts(systemPrompt, systemPrompt);",
+    "\t\tif (embedded.length === 0) {",
+    "\t\t\tthrow new Error(",
+    "\t\t\t\t`prompt-capture: no capture for this ${systemPrompt.length}-char system prompt, and it embeds none of the ${this.captures.size} known. `",
+    "\t\t\t\t+ `Claude Code would receive none of this turn's context files, skills or custom instructions. `",
+    "\t\t\t\t+ `The usual cause is an extension loaded after claude-bridge that rewrites the system prompt from before_agent_start — `",
+    "\t\t\t\t+ `one that wraps it is fine, one that rebuilds or strips it leaves nothing to match.`,",
+    "\t\t\t);",
+    "\t\t}",
+    "",
+    "\t\treturn { assembledPrompt: systemPrompt, custom: systemPrompt, contextFiles: [], skills: [], inherited: embedded };",
+    "\t}",
+  ].join("\n") + "\n";
+
+  const patched = patchClaudeBridgeSource(source);
+  assert.equal(patched.status, "patched");
+  assert.match(patched.source, new RegExp(CLAUDE_BRIDGE_PATCH_MARKER));
+  assert.doesNotMatch(patched.source, /throw new Error\(/);
+  assert.doesNotMatch(patched.source, /prompt-capture: no capture/);
+  // The unrecorded prompt is carried through as `custom`, not dropped.
+  assert.match(patched.source, /inherited: \[\] \};/);
+  // The embedded-match return below the patched branch is left intact.
+  assert.match(patched.source, /inherited: embedded \};/);
+  assert.equal(patchClaudeBridgeSource(patched.source).status, "already-patched");
+});
+
+test("pi-claude-bridge patch skips cleanly when upstream shape changes", () => {
+  const result = patchClaudeBridgeSource("export class PromptCaptures {}\n");
+  assert.equal(result.status, "skipped");
+  assert.equal(result.source, "export class PromptCaptures {}\n");
 });
 
 test("firstShellWord parses quoted and escaped runner paths", () => {
