@@ -245,6 +245,7 @@ let
   };
   piHermesMemoryConfig = {
     childExtensionPaths = [ "npm:pi-claude-bridge" ];
+    reviewRecentMessages = 30;
   };
   piSubagentsSettings = {
     maxConcurrent = 4;
