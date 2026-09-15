@@ -43,7 +43,6 @@ let
 
   claudeSettings = {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
-    viewMode = "verbose";
     statusLine = {
       type = "command";
       command = ''bash "$HOME/.claude/statusline-command.sh"'';
