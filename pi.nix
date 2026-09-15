@@ -135,7 +135,7 @@ let
     shellCommandPrefix = "";
     defaultProvider = "claude-bridge";
     defaultModel = "claude-opus-5";
-    defaultThinkingLevel = "low";
+    defaultThinkingLevel = "medium";
     enabledModels = [
       "openai-codex/*"
       "deepseek/*"
@@ -243,6 +243,9 @@ let
       defaultMode = "full";
     };
   };
+  piHermesMemoryConfig = {
+    childExtensionPaths = [ "npm:pi-claude-bridge" ];
+  };
   piSubagentsSettings = {
     maxConcurrent = 4;
     defaultMaxTurns = 50;
@@ -284,6 +287,9 @@ let
   '';
   writePiClaudeBridgeConfig = lib.optionalString (piPackageEnabled "npm:pi-claude-bridge") ''
     ${helpers.writeJson "$HOME/.pi/agent/claude-bridge.json" piClaudeBridgeConfig}
+  '';
+  writePiHermesMemoryConfig = lib.optionalString (piPackageEnabled "npm:pi-hermes-memory") ''
+    ${helpers.writeJson "$HOME/.pi/agent/hermes-memory-config.json" piHermesMemoryConfig}
   '';
   writePiPermissionSystemConfig = lib.optionalString piPermissionSystemEnabled ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
@@ -362,6 +368,7 @@ in
     ${writePiPermissionSystemConfig}
     ${writePiLeanCtxConfig}
     ${writePiClaudeBridgeConfig}
+    ${writePiHermesMemoryConfig}
     ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     rm -f "$HOME/.pi/agent/models.json"
