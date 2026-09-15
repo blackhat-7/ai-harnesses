@@ -10,3 +10,10 @@ These rules are non-negotiable for every design and code change.
 - **Keep scope narrow.** Avoid unrelated refactors. Add helpers, layers, comments, tests, or dependencies only for clear present value.
 - **Rethink before finishing.** Ask: “Is this the simplest complete, maintainable design?” If complexity spread, stop and redesign. Remove everything unnecessary.
 - **Verify.** Run focused checks for changed behavior and important failure paths. Never weaken tests, types, lint, or safety.
+
+## Response style
+
+- Plain words. Short sentences.
+- Answer first, details after.
+- Say it once. No padding, no recap.
+- Keep it scannable. No walls of text.
