@@ -36,7 +36,12 @@
       enabledServers = lib.mkOption {
         type = lib.types.nullOr (lib.types.listOf lib.types.str);
         default = null;
-        description = "MCP server names to enable. null means all known servers.";
+        description = "MCP server names to enable. null means all known servers except opt-in-only ones.";
+      };
+      extraServers = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Opt-in-only MCP server names to additionally enable (e.g. slack).";
       };
     };
 
