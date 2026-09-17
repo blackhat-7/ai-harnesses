@@ -6,7 +6,6 @@
 let
   mcpEnable = config.aiHarnesses.mcp.enable or true;
   selectedServers = config.aiHarnesses.mcp.enabledServers or null;
-  extraServers = config.aiHarnesses.mcp.extraServers or [ ];
 
   atlassianReadOnlyTools = [
     "atlassianUserInfo"
@@ -142,29 +141,22 @@ let
         LINEAR_API_TOKEN = "\${LINEAR_API_KEY}";
       };
     };
-    slack = {
-      type = "http";
-      url = "https://mcp.slack.com/mcp";
-    };
   };
 
-  optInOnlyServers = [ "slack" ];
-
-  unknownServers = builtins.filter (name: !(builtins.hasAttr name allMcpServers)) (
-    (if selectedServers == null then [ ] else selectedServers) ++ extraServers
-  );
-  selectedAttrs =
+  unknownServers =
     if selectedServers == null then
-      builtins.removeAttrs allMcpServers optInOnlyServers
+      [ ]
     else
-      lib.filterAttrs (name: _: builtins.elem name selectedServers) allMcpServers;
+      builtins.filter (name: !(builtins.hasAttr name allMcpServers)) selectedServers;
   mcpServers =
     assert lib.assertMsg (unknownServers == [ ])
-      "Unknown aiHarnesses.mcp server names: ${builtins.concatStringsSep ", " unknownServers}";
+      "Unknown aiHarnesses.mcp.enabledServers: ${builtins.concatStringsSep ", " unknownServers}";
     if !mcpEnable then
       { }
+    else if selectedServers == null then
+      allMcpServers
     else
-      selectedAttrs // lib.filterAttrs (name: _: builtins.elem name extraServers) allMcpServers;
+      lib.filterAttrs (name: _: builtins.elem name selectedServers) allMcpServers;
 
   piMcpServer =
     name: v:
@@ -180,7 +172,7 @@ let
       auth = "bearer";
       bearerTokenEnv = "GITHUB_MCP_TOKEN";
     }
-    // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" "slack" ]) {
+    // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" ]) {
       auth = "oauth";
     }
     // lib.optionalAttrs (name == "atlassian") {
