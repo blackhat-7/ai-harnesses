@@ -59,5 +59,11 @@ export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
+# MCP tool definitions are sent in full on every request and easily outweigh a
+# local context window (874 tools measured at ~695k tokens here), so local
+# sessions start with none. Pass --mcp-config to choose servers explicitly.
+mcp="--strict-mcp-config"
+case " $* " in *" --mcp-config "*) mcp="" ;; esac
+
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
-exec node "@shim@" "$base" claude "$@"
+exec node "@shim@" "$base" claude ${mcp:+"$mcp"} "$@"

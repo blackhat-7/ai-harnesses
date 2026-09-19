@@ -17,9 +17,32 @@ import { spawn } from "node:child_process";
 const asBlocks = (content) =>
   typeof content === "string" ? [{ type: "text", text: content }] : (content ?? []);
 
+// llama.cpp reads any schema object holding a "$ref" key as a reference, so a
+// tool with a property literally named "$ref" (SigNoz's MCP tools have one)
+// fails the whole request with "type must be string, but is object". Drop the
+// property; the rest of the tool still works.
+function dropRefProperties(node) {
+  // No short-circuiting: every tool has to be visited, not just the first hit.
+  if (Array.isArray(node)) return node.reduce((found, item) => dropRefProperties(item) || found, false);
+  if (!node || typeof node !== "object") return false;
+
+  let dropped = false;
+  const properties = node.properties;
+  if (properties && typeof properties === "object" && !Array.isArray(properties) && "$ref" in properties) {
+    delete properties["$ref"];
+    if (Array.isArray(node.required)) node.required = node.required.filter((name) => name !== "$ref");
+    dropped = true;
+  }
+  return Object.values(node).reduce((found, value) => dropRefProperties(value) || found, dropped);
+}
+
 export function rewriteRequest(body, models = {}) {
   const request = JSON.parse(body);
   let changed = false;
+
+  if (Array.isArray(request.tools) && dropRefProperties(request.tools)) {
+    changed = true;
+  }
 
   // Claude Code marks a 1M-context selection with a [1m] suffix on the name.
   const id = models[String(request.model).replace(/\[1m\]$/, "")];

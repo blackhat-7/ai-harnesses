@@ -42,6 +42,34 @@ test("display names, including a [1m] selection, become server model ids", () =>
   assert.equal(result.model, "/models/Qwen-Q4_K_M.gguf");
 });
 
+test("schema properties named $ref are dropped, $ref references are kept", () => {
+  const body = JSON.stringify({
+    messages: [{ role: "user", content: "hi" }],
+    tools: [
+      { name: "first", input_schema: { type: "object", properties: { $ref: { type: "string" } } } },
+      { name: "unaffected", input_schema: { type: "object", properties: { id: { type: "string" } } } },
+      {
+        name: "create_dashboard",
+        input_schema: {
+          $defs: { Ref: { type: "object", properties: { $ref: { type: "string" }, id: { type: "string" } }, required: ["$ref", "id"] } },
+          type: "object",
+          properties: { spec: { $ref: "#/$defs/Ref" } },
+        },
+      },
+    ],
+  });
+
+  const tools = JSON.parse(rewriteRequest(body)).tools;
+  const schema = tools[2].input_schema;
+
+  // Every tool is visited, not just the first one with a "$ref" property.
+  assert.deepEqual(Object.keys(tools[0].input_schema.properties), []);
+  assert.deepEqual(Object.keys(tools[1].input_schema.properties), ["id"]);
+  assert.deepEqual(Object.keys(schema.$defs.Ref.properties), ["id"]);
+  assert.deepEqual(schema.$defs.Ref.required, ["id"]);
+  assert.equal(schema.properties.spec.$ref, "#/$defs/Ref");
+});
+
 test("unknown models and plain requests are forwarded byte for byte", () => {
   const body = JSON.stringify({ model: "gpt-oss:20b", messages: [{ role: "user", content: "hi" }] });
 

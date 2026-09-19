@@ -80,6 +80,10 @@ claude-local -p 'hello'          # all other arguments go to claude
   (`http://pc:6868`); `LOCAL_MODEL_BASE_URL` overrides it per run.
 - The served context window (`meta.n_ctx`) becomes `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
   otherwise Claude Code assumes 200k for models it does not know.
+- Local sessions start with `--strict-mcp-config`, so no MCP servers load. Tool
+  definitions are resent in full on every request: 847 MCP tools measured here
+  cost ~695k prompt tokens against a 131k window, while the 27 built-in tools
+  cost ~20k. Pass `--mcp-config <file>` to load chosen servers instead.
 - Claude Code hides server errors behind silent retries, so the shim writes the
   request and error of any rejected call to `$TMPDIR/claude-local-error.json`.
 - `scripts/claude-local-shim.mjs` is a local proxy that rewrites two things on the
