@@ -11,6 +11,22 @@ let
   isYolo = mode == "yolo";
   isRestricted = mode == "restricted";
 
+  # `claude` itself keeps its own Anthropic login; this wrapper only sets a
+  # local endpoint for the sessions it starts. Models are discovered at runtime.
+  claudeLocal = pkgs.writeShellApplication {
+    name = "claude-local";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.jq
+      pkgs.gnugrep
+      pkgs.nodejs
+    ];
+    text = builtins.replaceStrings [ "@defaultBaseUrl@" "@shim@" ] [
+      config.aiHarnesses.claude.localModelBaseUrl
+      "${./scripts/claude-local-shim.mjs}"
+    ] (builtins.readFile ./scripts/claude-local.sh);
+  };
+
   hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
   claudeMcpAllows =
     lib.optionals (hasMcp "aftershoot-mcp") [ "mcp__aftershoot-mcp" ]
@@ -78,6 +94,8 @@ let
   };
 in
 {
+  home.packages = [ claudeLocal ];
+
   home.activation.writeClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/.claude"
     ${helpers.copyFile "$HOME/.claude/statusline-command.sh" ./scripts/claude-statusline.sh}

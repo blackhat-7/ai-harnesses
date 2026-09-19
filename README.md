@@ -59,6 +59,30 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Pi uses `pi-lean-ctx` in additive, lean-profile mode for compressed reads and persistent caching while keeping native bash on the readonly-bash permission path.
 - `code-review-graph` is available through the shared MCP catalog and runs lazily via `uvx`.
 
+## Local models in Claude Code
+
+`claude-local` starts Claude Code against a local Anthropic-compatible server
+(llama.cpp `--jinja`, Ollama >= 0.14, or any gateway serving `/v1/messages`).
+Plain `claude` is untouched and keeps its Anthropic login.
+
+```bash
+claude-local                     # first model the server lists
+LOCAL_MODEL=qwen claude-local    # first model id containing "qwen"
+claude-local -p 'hello'          # all other arguments go to claude
+```
+
+- Models are discovered from `GET /v1/models` at startup, never pinned. `/model`
+  inside the session lists them by bare name, so switching is one command.
+- The server URL defaults to `aiHarnesses.claude.localModelBaseUrl`
+  (`http://pc:6868`); `LOCAL_MODEL_BASE_URL` overrides it per run.
+- The served context window (`meta.n_ctx`) becomes `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
+  otherwise Claude Code assumes 200k for models it does not know.
+- `scripts/claude-local-shim.mjs` is a local proxy that hoists the trailing
+  `role: "system"` message Claude Code sends into the top-level `system` field.
+  Strict chat templates (Qwen and friends) reject a non-leading system message
+  with HTTP 500, which Claude Code retries silently until the session looks hung.
+  Delete the shim once llama.cpp merges those messages itself.
+
 ## Atlassian MCP auth and read-only setup
 
 1. In **Atlassian Administration > Rovo > Rovo MCP server**, allow only trusted client domains, keep **OAuth 2.1** enabled, and turn **API token** auth off unless you explicitly need headless service auth.

@@ -40,6 +40,12 @@
       };
     };
 
+    claude.localModelBaseUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "http://pc:6868";
+      description = "Default base URL `claude-local` discovers local models from.";
+    };
+
     pi.disabledPackages = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
