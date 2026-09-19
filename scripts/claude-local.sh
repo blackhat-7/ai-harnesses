@@ -29,8 +29,8 @@ fi
 
 # Label picker rows with the bare model name; keep the server's id as the value.
 settings=$(printf '%s\n' "$ids" | jq -R -s -c \
-  '{modelPicker: [splits("\n") | select(length > 0)
-    | {id: ., name: (split("/") | last | sub("\\.gguf$"; ""))}]}')
+  '{modelPicker: {options: [splits("\n") | select(length > 0)
+    | {model: ., label: (split("/") | last | sub("\\.gguf$"; ""))}]}}')
 
 # Claude Code assumes 200k for models it does not know; use the served window.
 context=$(jq -r --arg m "$model" \
