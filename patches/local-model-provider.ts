@@ -42,7 +42,7 @@ async function discoverModels(signal?: AbortSignal) {
       input: ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: model.meta?.n_ctx ?? model.meta?.n_ctx_train ?? 128000,
-      maxTokens: 8192,
+      maxTokens: 32768,
       compat: {
         supportsDeveloperRole: false,
         supportsReasoningEffort: true,
