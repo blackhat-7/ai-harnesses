@@ -70,6 +70,9 @@ let
         }
       else
         {
+          # Only user-level settings can start a session in auto mode, and
+          # activation rewrites this file, so it has to live here.
+          defaultMode = "auto";
           allow = [
             "Read"
             "Glob"
