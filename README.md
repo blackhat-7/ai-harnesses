@@ -71,17 +71,21 @@ LOCAL_MODEL=qwen claude-local    # first model id containing "qwen"
 claude-local -p 'hello'          # all other arguments go to claude
 ```
 
-- Models are discovered from `GET /v1/models` at startup, never pinned. `/model`
-  inside the session lists them by bare name, so switching is one command.
+- Models are discovered from `GET /v1/models` at startup, never pinned. Each one
+  is named after its file (`Qwen3.8-27B-Uncensored-Q4_K_M`), because llama.cpp
+  serves gguf paths as model ids and Claude Code shows the id verbatim in
+  `/model` and the status line. `/model <name>` switches in-session; the shim
+  turns the name back into the id the server serves.
 - The server URL defaults to `aiHarnesses.claude.localModelBaseUrl`
   (`http://pc:6868`); `LOCAL_MODEL_BASE_URL` overrides it per run.
 - The served context window (`meta.n_ctx`) becomes `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
   otherwise Claude Code assumes 200k for models it does not know.
-- `scripts/claude-local-shim.mjs` is a local proxy that hoists the trailing
-  `role: "system"` message Claude Code sends into the top-level `system` field.
-  Strict chat templates (Qwen and friends) reject a non-leading system message
-  with HTTP 500, which Claude Code retries silently until the session looks hung.
-  Delete the shim once llama.cpp merges those messages itself.
+- `scripts/claude-local-shim.mjs` is a local proxy that rewrites two things on the
+  way out: it maps display names back to server ids (from `CLAUDE_LOCAL_MODELS`),
+  and it hoists the trailing `role: "system"` message Claude Code sends into the
+  top-level `system` field. Strict chat templates (Qwen and friends) reject a
+  non-leading system message with HTTP 500, which Claude Code retries silently
+  until the session looks hung.
 
 ## Atlassian MCP auth and read-only setup
 

@@ -1,32 +1,47 @@
-// Claude Code appends a trailing `role: "system"` message (hook and environment
-// context) to every request. Strict chat templates (Qwen and friends, rendered by
-// llama.cpp) reject a system message that is not first with HTTP 500, which Claude
-// Code retries silently until the session looks hung. Hoist those messages into
-// the top-level `system` field and forward everything else untouched.
+// Rewrites Claude Code's requests on the way to a local model server:
+//
+//   - Claude Code appends a trailing `role: "system"` message (hook and environment
+//     context) to every request. Strict chat templates (Qwen and friends, rendered
+//     by llama.cpp) reject a system message that is not first with HTTP 500, which
+//     Claude Code retries silently until the session looks hung. Those messages are
+//     hoisted into the top-level `system` field.
+//   - Model names come back from the display names in CLAUDE_LOCAL_MODELS to the
+//     ids the server actually serves.
 //
 // Usage: claude-local-shim.mjs <upstream-base-url> <command> [args...]
-// Delete this once llama.cpp merges system messages itself.
 import http from "node:http";
 import { spawn } from "node:child_process";
 
 const asBlocks = (content) =>
   typeof content === "string" ? [{ type: "text", text: content }] : (content ?? []);
 
-export function hoistSystemMessages(body) {
+export function rewriteRequest(body, models = {}) {
   const request = JSON.parse(body);
-  if (!Array.isArray(request.messages)) return body;
-  if (!request.messages.some((message) => message.role === "system")) return body;
+  let changed = false;
 
-  const system = asBlocks(request.system);
-  const messages = [];
-  for (const message of request.messages) {
-    if (message.role !== "system") messages.push(message);
-    else system.push(...asBlocks(message.content).filter((block) => block.type === "text"));
+  // Claude Code marks a 1M-context selection with a [1m] suffix on the name.
+  const id = models[String(request.model).replace(/\[1m\]$/, "")];
+  if (id && id !== request.model) {
+    request.model = id;
+    changed = true;
   }
-  return JSON.stringify({ ...request, system, messages });
+
+  if (Array.isArray(request.messages) && request.messages.some((m) => m.role === "system")) {
+    const system = asBlocks(request.system);
+    const messages = [];
+    for (const message of request.messages) {
+      if (message.role !== "system") messages.push(message);
+      else system.push(...asBlocks(message.content).filter((block) => block.type === "text"));
+    }
+    Object.assign(request, { system, messages });
+    changed = true;
+  }
+
+  return changed ? JSON.stringify(request) : body;
 }
 
 function start(upstream, command) {
+  const models = JSON.parse(process.env.CLAUDE_LOCAL_MODELS ?? "{}");
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
@@ -34,7 +49,7 @@ function start(upstream, command) {
       let body = Buffer.concat(chunks);
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         try {
-          body = Buffer.from(hoistSystemMessages(body.toString()));
+          body = Buffer.from(rewriteRequest(body.toString(), models));
         } catch {} // Not JSON we understand: forward it as received.
       }
       const forwarded = http.request(
@@ -71,6 +86,8 @@ function start(upstream, command) {
   });
 }
 
-// Without arguments the module is only being imported, so nothing is proxied.
-const [upstreamUrl, ...command] = process.argv.slice(2);
-if (upstreamUrl) start(new URL(upstreamUrl), command);
+// Nothing is proxied when the module is imported rather than run.
+if (import.meta.filename === process.argv[1]) {
+  const [upstreamUrl, ...command] = process.argv.slice(2);
+  start(new URL(upstreamUrl), command);
+}
