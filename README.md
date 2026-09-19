@@ -80,6 +80,8 @@ claude-local -p 'hello'          # all other arguments go to claude
   (`http://pc:6868`); `LOCAL_MODEL_BASE_URL` overrides it per run.
 - The served context window (`meta.n_ctx`) becomes `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
   otherwise Claude Code assumes 200k for models it does not know.
+- Claude Code hides server errors behind silent retries, so the shim writes the
+  request and error of any rejected call to `$TMPDIR/claude-local-error.json`.
 - `scripts/claude-local-shim.mjs` is a local proxy that rewrites two things on the
   way out: it maps display names back to server ids (from `CLAUDE_LOCAL_MODELS`),
   and it hoists the trailing `role: "system"` message Claude Code sends into the

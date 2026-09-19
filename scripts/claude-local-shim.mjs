@@ -9,7 +9,9 @@
 //     ids the server actually serves.
 //
 // Usage: claude-local-shim.mjs <upstream-base-url> <command> [args...]
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
 import { spawn } from "node:child_process";
 
 const asBlocks = (content) =>
@@ -40,6 +42,18 @@ export function rewriteRequest(body, models = {}) {
   return changed ? JSON.stringify(request) : body;
 }
 
+export const failureLog = `${os.tmpdir()}/claude-local-error.json`;
+
+function saveFailure(request, response) {
+  const chunks = [];
+  response.on("data", (chunk) => chunks.push(chunk));
+  response.on("end", () => {
+    const error = Buffer.concat(chunks).toString();
+    const report = { status: response.statusCode, error, request: request.toString() };
+    fs.writeFile(failureLog, JSON.stringify(report, null, 2), () => {});
+  });
+}
+
 function start(upstream, command) {
   const models = JSON.parse(process.env.CLAUDE_LOCAL_MODELS ?? "{}");
   const server = http.createServer((req, res) => {
@@ -61,6 +75,9 @@ function start(upstream, command) {
           headers: { ...req.headers, host: upstream.host, "content-length": body.length },
         },
         (response) => {
+          // Claude Code hides server errors behind silent retries, so keep the
+          // request that caused one; it is the only way to debug a local server.
+          if ((response.statusCode ?? 0) >= 400) saveFailure(body, response);
           res.writeHead(response.statusCode ?? 502, response.headers);
           response.pipe(res);
         },
