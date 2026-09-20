@@ -364,7 +364,10 @@ in
     readonlyBashSandbox
     pkgs.bash
   ]
-  ++ piReadonlyBashTrustedPathPackages;
+  # readonly-bash reaches its trusted PATH by store path, so nix itself need not
+  # be installed -- and installing it would shadow the system's own nix (which
+  # may be a Determinate build that understands settings nixpkgs' nix does not).
+  ++ lib.remove pkgs.nix piReadonlyBashTrustedPathPackages;
 
   home.activation.install-pi = lib.hm.dag.entryAfter [ "writeBoundary" ] installPiActivation;
 
