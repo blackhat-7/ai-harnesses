@@ -35,25 +35,19 @@ const promptCaptureEdits = [
     ].join("\n"),
   },
   {
-    oldText: [
-      "\t\tif (embedded.length === 0) {",
-      "\t\t\tthrow new Error(",
-      "\t\t\t\t`prompt-capture: no capture for this ${systemPrompt.length}-char system prompt, and it embeds none of the ${this.captures.size} known. `",
-      "\t\t\t\t+ `Claude Code would receive none of this turn's context files, skills or custom instructions. `",
-      "\t\t\t\t+ `The usual cause is an extension loaded after claude-bridge that rewrites the system prompt from before_agent_start — `",
-      "\t\t\t\t+ `one that wraps it is fine, one that rebuilds or strips it leaves nothing to match.`,",
-      "\t\t\t);",
-      "\t\t}",
-      "",
-    ].join("\n"),
+    // Anchored on the `throw` statement alone, not on the message it builds: the
+    // wording is the most volatile part of this block and 0.8.0 rewrote it, which
+    // silently dropped this edit and put the throw back. `closestKnown` and the
+    // `onDiagnose` call above it are left in place, so a miss still reaches the
+    // bridge's debug log; only the throw becomes a forward.
+    startText: "\t\t\tthrow new Error(\n",
+    endText: "\t\t\t);\n",
     newText: [
-      "\t\tif (embedded.length === 0) {",
       `\t\t\t// ${PATCH_MARKER}: pi-automode's classifier builds its own prompt, which`,
       "\t\t\t// before_agent_start never records. Throwing here makes automode fail closed and",
       "\t\t\t// block every tool call. An unrecorded prompt has no pi context files or skills",
       "\t\t\t// behind it, so carrying it through as `custom` drops nothing.",
       "\t\t\treturn { assembledPrompt: systemPrompt, custom: systemPrompt, contextFiles: [], skills: [], inherited: [], unrecorded: true };",
-      "\t\t}",
       "",
     ].join("\n"),
   },
@@ -96,6 +90,19 @@ function replaceOnce(source, oldText, newText) {
   return { source: source.slice(0, first) + newText + source.slice(first + oldText.length), changed: true, missing: false };
 }
 
+/** Replace everything from `startText` through `endText` inclusive. Keyed on the
+ *  stable edges of a statement so an upstream reword of its body cannot drop the edit. */
+function replaceSpan(source, startText, endText, newText) {
+  const start = source.indexOf(startText);
+  if (start === -1) return { source, changed: false, missing: true };
+  if (source.indexOf(startText, start + startText.length) !== -1) {
+    throw new Error(`patch anchor is not unique: ${startText.slice(0, 80)}`);
+  }
+  const end = source.indexOf(endText, start + startText.length);
+  if (end === -1) return { source, changed: false, missing: true };
+  return { source: source.slice(0, start) + newText + source.slice(end + endText.length), changed: true, missing: false };
+}
+
 function patchSource(source, edits) {
   let next = source;
   const missing = [];
@@ -104,9 +111,11 @@ function patchSource(source, edits) {
   for (const edit of edits) {
     if (next.includes(edit.newText)) continue;
 
-    const result = replaceOnce(next, edit.oldText, edit.newText);
+    const result = edit.startText
+      ? replaceSpan(next, edit.startText, edit.endText, edit.newText)
+      : replaceOnce(next, edit.oldText, edit.newText);
     if (result.missing) {
-      missing.push(edit.oldText.slice(0, 80));
+      missing.push((edit.oldText ?? edit.startText).slice(0, 80));
       continue;
     }
     changed += 1;
@@ -145,7 +154,21 @@ function patchAll(root = DEFAULT_ROOT, log = console.warn) {
 }
 
 if (require.main === module) {
-  patchAll(process.argv[2] || DEFAULT_ROOT);
+  const results = patchAll(process.argv[2] || DEFAULT_ROOT);
+  // A drifted anchor used to pass silently: 0.8.0 reworded the throw, this patch lost
+  // its forwarding route, and automode went back to blocking every tool call with no
+  // signal at switch time. Fail activation instead so the next upgrade cannot repeat it.
+  // `missing` stays a warning: the file is absent only before the first extension
+  // install, which the same activation performs a step earlier.
+  const drifted = results.filter((r) => r.status === "partial" || r.status === "skipped");
+  if (drifted.length > 0) {
+    console.error(
+      "[ai-harnesses] pi-claude-bridge unrecorded-prompt patch did not apply: "
+      + drifted.map((r) => `${r.file}=${r.status}`).join(", ")
+      + `. Upstream source changed; update the anchors in ${path.basename(__filename)}.`,
+    );
+    process.exit(1);
+  }
 }
 
 module.exports = { patchSource, patchFile, patchAll, promptCaptureEdits, indexEdits, DEFAULT_ROOT, PATCH_MARKER };
