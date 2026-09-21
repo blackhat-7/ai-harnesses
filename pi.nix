@@ -136,6 +136,7 @@ let
     defaultProvider = "claude-bridge";
     defaultModel = "claude-opus-5";
     defaultThinkingLevel = "medium";
+    hideThinkingBlock = false;
     enabledModels = [
       "openai-codex/*"
       "deepseek/*"
