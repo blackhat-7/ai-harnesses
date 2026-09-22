@@ -63,6 +63,10 @@ let
       type = "command";
       command = ''bash "$HOME/.claude/statusline-command.sh"'';
     };
+    attribution = {
+      commit = "";
+      pr = "";
+    };
     permissions =
       if isYolo then
         {
