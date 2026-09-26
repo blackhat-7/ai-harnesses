@@ -27,16 +27,17 @@ let
     ] (builtins.readFile ./scripts/claude-local.sh);
   };
 
-  hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
+  # Claude Code reaches Atlassian through the claude.ai Rovo connector, so the
+  # local MCP server would only duplicate it.
+  claudeMcpServers = builtins.removeAttrs mcpData.mcpServers [ "atlassian" ];
+
+  hasMcp = name: builtins.hasAttr name claudeMcpServers;
   claudeMcpAllows =
     lib.optionals (hasMcp "aftershoot-mcp") [ "mcp__aftershoot-mcp" ]
     ++ lib.optionals (hasMcp "bestiary") [ "mcp__bestiary" ]
     ++ lib.optionals (hasMcp "chrome-devtools") [ "mcp__chrome-devtools" ]
     ++ lib.optionals (hasMcp "github") [ "mcp__github" ]
     ++ lib.optionals (hasMcp "playwright") [ "mcp__playwright" ]
-    ++ lib.optionals (hasMcp "atlassian") (
-      map (tool: "mcp__atlassian__${tool}") mcpData.atlassianReadOnlyTools
-    )
     ++ lib.optionals (hasMcp "linear") [
       "mcp__linear__linear_getViewer"
       "mcp__linear__linear_getOrganization"
@@ -86,9 +87,6 @@ let
             "WebFetch"
             "WebSearch"
           ] ++ claudeMcpAllows;
-          deny = lib.optionals (hasMcp "atlassian") (
-            map (tool: "mcp__atlassian__${tool}") mcpData.atlassianWriteTools
-          );
           ask = lib.optionals isRestricted [
             "Edit"
             "Write"
@@ -109,6 +107,6 @@ in
     chmod +x "$HOME/.claude/statusline-command.sh"
     rm -f "$HOME/.claude/notify.sh"
     ${helpers.writeJson "$HOME/.claude/settings.json" claudeSettings}
-    ${helpers.mergeJson "$HOME/.claude.json" { mcpServers = mcpData.mcpServers; }}
+    ${helpers.mergeJson "$HOME/.claude.json" { mcpServers = claudeMcpServers; }}
   '';
 }
