@@ -124,6 +124,8 @@ let
     npmCommand = piNpmCommand;
     skills = [ "~/.claude/skills" ];
     prompts = [ "~/.claude/commands" ];
+    themes = [ "${./themes/kanagawa-dragon.json}" ];
+    theme = "kanagawa-dragon";
     extensions = [
       "${./readonly-bash-classifier.js}"
       "${./patches/pi-mouse.js}"
