@@ -509,12 +509,15 @@ test("pi-claude-bridge patch sends an unrecorded prompt instead of Claude Code's
     "\t\t\tappend: systemPromptAppend ? systemPromptAppend : undefined,",
     "\t\t},",
     "\t\textraArgs,",
+    "\t\t...(effort ? { effort } : {}),",
+    "\t\t...(mcpServers ? { mcpServers } : {}),",
     "\t};",
   ].join("\n") + "\n";
 
   const patched = patchClaudeBridgeSource(source, claudeBridgeIndexEdits);
   assert.equal(patched.status, "patched");
   assert.match(patched.source, /systemPrompt: promptCapture\?\.unrecorded && systemPromptAppend/);
+  assert.match(patched.source, /promptCapture\?\.unrecorded \? \{ thinking: \{ type: "disabled" as const \} \}/);
   // Recorded prompts still get the preset with the portable parts appended.
   assert.match(patched.source, /type: "preset", preset: "claude_code",/);
   assert.match(patched.source, /append: systemPromptAppend \? systemPromptAppend : undefined,/);

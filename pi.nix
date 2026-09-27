@@ -176,8 +176,8 @@ let
   piAutomodeConfig.autoMode = {
     classifierModel = "claude-bridge/claude-haiku-4-5";
     classifierReasoningLevel = "low";
-    # Each bridge call spawns a Claude Code process: ~5s floor measured, 14-20s with
-    # a full classifier prompt. The 20s default times out on its own round trip.
+    # Each bridge call spawns a Claude Code process. With thinking on, haiku took
+    # 10-45s per stage; the bridge patch now disables it (~1-2s). Kept as headroom.
     classifierTimeoutMs = 60000;
     allowInsideWorkingDirectory = true;
   };

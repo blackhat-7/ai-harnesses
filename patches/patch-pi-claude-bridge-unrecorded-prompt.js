@@ -18,7 +18,8 @@ const PATCH_MARKER = "ai-harnesses: forward unrecorded system prompts";
 // Such a prompt is also self-contained, so it replaces Claude Code's preset rather
 // than appending to it. The preset frames a one-shot JSON request as a coding task
 // — which is how automode ends up parsing prose instead of a decision — and bills
-// latency for guidance a classifier cannot use.
+// latency for guidance a classifier cannot use. For the same reason it runs with
+// thinking disabled.
 const promptCaptureEdits = [
   {
     oldText: [
@@ -72,6 +73,22 @@ const indexEdits = [
       "\t\t\t\ttype: \"preset\", preset: \"claude_code\",",
       "\t\t\t\tappend: systemPromptAppend ? systemPromptAppend : undefined,",
       "\t\t\t},",
+      "",
+    ].join("\n"),
+  },
+  {
+    oldText: [
+      "\t\t...(effort ? { effort } : {}),",
+      "\t\t...(mcpServers ? { mcpServers } : {}),",
+      "",
+    ].join("\n"),
+    newText: [
+      "\t\t...(effort ? { effort } : {}),",
+      `\t\t// ${PATCH_MARKER}: a one-shot classifier gains nothing from thinking. Haiku`,
+      "\t\t// ignores `effort` and thinks for 1-5k tokens anyway (10-45s per call); disabled,",
+      "\t\t// a call takes ~1-2s, and the only verdict that changed in testing moved toward block.",
+      "\t\t...(promptCapture?.unrecorded ? { thinking: { type: \"disabled\" as const } } : {}),",
+      "\t\t...(mcpServers ? { mcpServers } : {}),",
       "",
     ].join("\n"),
   },
