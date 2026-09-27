@@ -13,7 +13,7 @@ let
   selectedMcpServers = config.aiHarnesses.mcp.enabledServers or null;
   mcpEnabled = (config.aiHarnesses.mcp.enable or true) && selectedMcpServers != [ ];
   disabledPiPackages = config.aiHarnesses.pi.disabledPackages or [ ];
-  piPackageEnabled = source: !builtins.elem source disabledPiPackages;
+  piPackageEnabled = package: !builtins.elem (package.source or package) disabledPiPackages;
   piPermissionSystemEnabled = mode == "restricted" && piPackageEnabled "npm:@gotgenes/pi-permission-system";
   piAutomodeEnabled = mode == "auto" && piPackageEnabled "npm:@czottmann/pi-automode";
 
@@ -81,7 +81,6 @@ let
       "npm:@ifi/oh-pi-themes"
       "npm:pi-opencode-theme"
       "npm:pi-rewind"
-      "npm:pi-intercom"
       "npm:pi-autoname"
       "npm:pi-session-move"
       "npm:pi-bar"
@@ -90,7 +89,11 @@ let
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
       "npm:pi-claude-bridge"
-      "git:github.com/DietrichGebert/ponytail"
+      # The mode prompt lives in the extension; its skills only duplicate it.
+      {
+        source = "git:github.com/DietrichGebert/ponytail";
+        skills = [ ];
+      }
     ]
   );
 
@@ -122,7 +125,11 @@ let
   piSettings = {
     packages = piPackages;
     npmCommand = piNpmCommand;
-    skills = [ "~/.claude/skills" ];
+    skills = [
+      "~/.claude/skills"
+      # Claude.ai-synced skills that need claude.ai connectors pi lacks.
+      "!/**/.claude/skills/synced/*/{docs,morning,import-memory}"
+    ];
     prompts = [ "~/.claude/commands" ];
     themes = [ "${./themes/kanagawa-dragon.json}" ];
     theme = "kanagawa-dragon";
@@ -217,7 +224,6 @@ let
     subagent = "allow";
     get_subagent_result = "allow";
     steer_subagent = "allow";
-    intercom = "allow";
     contact_supervisor = "allow";
     write = "ask";
     edit = "ask";
