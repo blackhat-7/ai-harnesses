@@ -34,7 +34,9 @@ let
         command = [ v.command ] ++ (v.args or [ ]);
         enabled = opencodeEnabled.${name} or false;
       }
-      // lib.optionalAttrs (v ? env) { environment = v.env; };
+      // lib.optionalAttrs (v ? env) {
+        environment = builtins.mapAttrs (_: lib.replaceStrings [ "\${" "}" ] [ "{env:" "}" ]) v.env;
+      };
 
   opencodeMcpPermission =
     builtins.listToAttrs (
