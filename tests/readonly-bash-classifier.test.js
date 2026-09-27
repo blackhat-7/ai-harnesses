@@ -514,14 +514,14 @@ test("pi-claude-bridge patch sends an unrecorded prompt instead of Claude Code's
     "\t};",
   ].join("\n") + "\n";
 
-  const patched = patchClaudeBridgeSource(source, claudeBridgeIndexEdits);
+  const patched = patchClaudeBridgeSource(source, claudeBridgeIndexEdits.slice(0, 2));
   assert.equal(patched.status, "patched");
   assert.match(patched.source, /systemPrompt: promptCapture\?\.unrecorded && systemPromptAppend/);
   assert.match(patched.source, /promptCapture\?\.unrecorded \? \{ thinking: \{ type: "disabled" as const \} \}/);
   // Recorded prompts still get the preset with the portable parts appended.
   assert.match(patched.source, /type: "preset", preset: "claude_code",/);
   assert.match(patched.source, /append: systemPromptAppend \? systemPromptAppend : undefined,/);
-  assert.equal(patchClaudeBridgeSource(patched.source, claudeBridgeIndexEdits).status, "already-patched");
+  assert.equal(patchClaudeBridgeSource(patched.source, claudeBridgeIndexEdits.slice(0, 2)).status, "already-patched");
 });
 
 test("pi-claude-bridge patch skips cleanly when upstream shape changes", () => {

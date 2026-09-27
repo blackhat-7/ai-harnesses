@@ -58,3 +58,18 @@ test("a changed throw statement is reported, not silently skipped", () => {
   assert.notEqual(result.status, "patched");
   assert.ok(result.missing.length > 0);
 });
+
+test("prose beside a one-shot tool call is dropped, only for one-shot queries", () => {
+  const { indexEdits } = require("../patches/patch-pi-claude-bridge-unrecorded-prompt.js");
+  const index = [
+    "function markStreamComplete(stream) {}",
+    "\tconst promptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);",
+    "\tif (event?.type === \"message_stop\" && c.turnSawToolCall) {",
+    "",
+  ].join("\n");
+  const result = patchSource(index, indexEdits.slice(2));
+  assert.equal(result.status, "patched");
+  assert.match(result.source, /if \(promptCapture\?\.unrecorded\) oneShotQueries\.add\(queryCtx\); else oneShotQueries\.delete\(queryCtx\);/);
+  assert.match(result.source, /if \(oneShotQueries\.has\(c\)\) c\.turnOutput\.content = c\.turnOutput\.content\.filter\(\(block\) => block\.type !== "text"\);/);
+  assert.equal(patchSource(result.source, indexEdits.slice(2)).status, "already-patched");
+});

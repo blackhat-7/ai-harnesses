@@ -92,6 +92,35 @@ const indexEdits = [
       "",
     ].join("\n"),
   },
+  {
+    oldText: "function markStreamComplete(",
+    newText: [
+      `// ${PATCH_MARKER}: queries answering a prompt pi never assembled.`,
+      "const oneShotQueries = new WeakSet<QueryContext>();",
+      "",
+      "function markStreamComplete(",
+    ].join("\n"),
+  },
+  {
+    oldText: "\tconst promptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);\n",
+    newText: [
+      "\tconst promptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);",
+      // The top-level context is reused by the next query, so the mark must be cleared too.
+      `\tif (promptCapture?.unrecorded) oneShotQueries.add(queryCtx); else oneShotQueries.delete(queryCtx); // ${PATCH_MARKER}`,
+      "",
+    ].join("\n"),
+  },
+  {
+    oldText: "\tif (event?.type === \"message_stop\" && c.turnSawToolCall) {\n",
+    newText: [
+      "\tif (event?.type === \"message_stop\" && c.turnSawToolCall) {",
+      `\t\t// ${PATCH_MARKER}: pi-automode rejects a decision tool call that has any text`,
+      "\t\t// beside it, and Haiku narrates its reasoning first, so every escalated action was",
+      "\t\t// blocked. The tool call is the whole answer to a one-shot prompt; drop the prose.",
+      "\t\tif (oneShotQueries.has(c)) c.turnOutput.content = c.turnOutput.content.filter((block) => block.type !== \"text\");",
+      "",
+    ].join("\n"),
+  },
 ];
 
 const targets = [
