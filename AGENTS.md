@@ -11,5 +11,6 @@ These are hard constraints for every code change and patch in this repository.
 - **Optimize for removal.** Patches must be short, simple, independently testable, and easy to delete.
 - **Test the behavior, not implementation details.** Add only focused regression coverage.
 - **Redesign when complexity grows.** If a small fix starts spreading, stop and find a narrower boundary.
+- **Use Conventional Commits.** Every commit message must follow the `type(scope): summary` format.
 
 When trade-offs exist, choose maintainability and minimal coupling over speculative generality or cleverness.

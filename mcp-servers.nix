@@ -93,6 +93,10 @@ let
         "bestiary"
         "serve"
       ];
+      env = {
+        REDDIT_CLIENT_ID = "\${REDDIT_CLIENT_ID}";
+        REDDIT_CLIENT_SECRET = "\${REDDIT_CLIENT_SECRET}";
+      };
     };
     code-review-graph = {
       command = "uvx";
