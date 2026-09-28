@@ -109,16 +109,23 @@ test("local mode selects the local main model and registers the side model", asy
     }),
   });
   const { pi, ctx } = fakePi(true);
+  process.argv.push("--local");
 
   try {
     await registerLocalModels(pi);
     await pi.session_start({}, ctx);
 
     assert.equal(pi.selected.id, "Main");
+    assert.equal(
+      JSON.parse(process.env.PI_AUTOMODE_SETTINGS_JSON).autoMode.classifierModel,
+      "local-models/Main",
+    );
     assert.equal(pi.providers["local-side"].models[0].id, "side");
     assert.equal(pi.shutdown, false);
   } finally {
     global.fetch = originalFetch;
+    process.argv.pop();
+    delete process.env.PI_AUTOMODE_SETTINGS_JSON;
   }
 });
 

@@ -3,7 +3,6 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const BASE_URL = "http://pc:6868/v1";
 // CPU llama-server for background jobs (`lct up local` starts both); its model is served as "side".
 const SIDE_URL = "http://pc:6869/v1";
-export const SIDE_MODEL = "local-side/side";
 // Startup awaits discovery (directly and via refreshModels); the LAN server answers well under this.
 const DISCOVERY_TIMEOUT_MS = 1000;
 
@@ -65,19 +64,22 @@ async function discoverOrExplain(baseUrl: string) {
 export default async function (pi: ExtensionAPI) {
   // `pi --local`: the session and the side roles run on the local servers. Side roles
   // (titles, memory reviews) name local-side first and fall back to cloud Haiku, so
-  // the side provider is registered only in local mode. pi-automode takes one model
-  // and reads this variable when it loads its config at session start.
+  // the side provider is registered only in local mode.
   pi.registerFlag("local", { description: "Use the local main and side models", type: "boolean" });
-  if (process.argv.includes("--local")) {
-    process.env.PI_AUTOMODE_SETTINGS_JSON = JSON.stringify({
-      autoMode: { classifierModel: SIDE_MODEL },
-    });
-  }
 
   let models: Awaited<ReturnType<typeof discoverModels>> = [];
   try {
     models = await discoverModels(BASE_URL);
   } catch {}
+
+  // The auto-mode classifier runs before every tool call, so it uses the GPU model's
+  // second slot (~2 s) rather than the CPU side model (10-25 s, timing out when calls
+  // run in parallel). pi-automode reads this variable when it loads at session start.
+  if (process.argv.includes("--local") && models[0]) {
+    process.env.PI_AUTOMODE_SETTINGS_JSON = JSON.stringify({
+      autoMode: { classifierModel: `local-models/${models[0].id}` },
+    });
+  }
 
   const registerMain = (models: Awaited<ReturnType<typeof discoverModels>>) =>
     pi.registerProvider("local-models", {
