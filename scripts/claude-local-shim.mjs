@@ -7,6 +7,9 @@
 //     hoisted into the top-level `system` field.
 //   - Model names come back from the display names in CLAUDE_LOCAL_MODELS to the
 //     ids the server actually serves.
+//   - Requests for the model "side" (Claude Code's Haiku role) go to the CPU side
+//     server at CLAUDE_LOCAL_SIDE_URL, so background calls do not queue behind the
+//     main model's single slot.
 //
 // Usage: claude-local-shim.mjs <upstream-base-url> <command> [args...]
 import fs from "node:fs";
@@ -79,23 +82,27 @@ function saveFailure(request, response) {
 
 function start(upstream, command) {
   const models = JSON.parse(process.env.CLAUDE_LOCAL_MODELS ?? "{}");
+  const side = process.env.CLAUDE_LOCAL_SIDE_URL && new URL(process.env.CLAUDE_LOCAL_SIDE_URL);
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
       let body = Buffer.concat(chunks);
+      let target = upstream;
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         try {
-          body = Buffer.from(rewriteRequest(body.toString(), models));
+          const rewritten = rewriteRequest(body.toString(), models);
+          body = Buffer.from(rewritten);
+          if (side && JSON.parse(rewritten).model === "side") target = side;
         } catch {} // Not JSON we understand: forward it as received.
       }
       const forwarded = http.request(
         {
-          hostname: upstream.hostname,
-          port: upstream.port,
+          hostname: target.hostname,
+          port: target.port,
           method: req.method,
-          path: upstream.pathname.replace(/\/$/, "") + req.url,
-          headers: { ...req.headers, host: upstream.host, "content-length": body.length },
+          path: target.pathname.replace(/\/$/, "") + req.url,
+          headers: { ...req.headers, host: target.host, "content-length": body.length },
         },
         (response) => {
           // Claude Code hides server errors behind silent retries, so keep the

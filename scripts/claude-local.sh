@@ -10,6 +10,9 @@ set -euo pipefail
 
 base="${LOCAL_MODEL_BASE_URL:-@defaultBaseUrl@}"
 base="${base%/}"
+# The CPU side server takes Claude Code's Haiku role (titles, summaries); its model is "side".
+side="${LOCAL_SIDE_BASE_URL:-http://pc:6869}"
+side="${side%/}"
 
 if ! command -v claude > /dev/null; then
   echo "claude-local: claude is not on PATH" >&2
@@ -31,6 +34,12 @@ CLAUDE_LOCAL_MODELS=$(jq -c '[.data[].id]
   | map(if length == 1 then .[0] else map({id: .id, name: .id}) end)
   | flatten | map({key: .name, value: .id}) | from_entries' <<< "$catalog")
 names=$(jq -r 'keys_unsorted[]' <<< "$CLAUDE_LOCAL_MODELS")
+
+if ! curl -fsS -m 5 "$side/v1/models" > /dev/null; then
+  echo "claude-local: no side server at $side (start both with 'lct up local', or set LOCAL_SIDE_BASE_URL)" >&2
+  exit 1
+fi
+export CLAUDE_LOCAL_SIDE_URL="$side"
 
 if [ -z "$names" ]; then
   echo "claude-local: $base/v1/models listed no models" >&2
@@ -56,7 +65,7 @@ export ANTHROPIC_AUTH_TOKEN="local"
 export ANTHROPIC_MODEL="$model"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="side"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # A local server cannot run auto mode's server-side safety checks, so stop
 # Claude Code asking for them and holding the first action behind a notice.

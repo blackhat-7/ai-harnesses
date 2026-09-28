@@ -152,6 +152,7 @@ let
       "claude-bridge/*"
       "kimi-coding/*"
       "local-models/*"
+      "local-side/*"
     ];
     compaction.enabled = true;
   } // lib.optionalAttrs (piPackageEnabled "npm:@codexstar/pi-listen") {
@@ -255,9 +256,24 @@ let
       defaultMode = "full";
     };
   };
+  # Background side jobs: the local CPU side model under `pi --local` (local-side is
+  # registered only then, see patches/local-model-provider.ts), otherwise Haiku.
+  sideModels = [
+    "local-side/side"
+    "claude-bridge/claude-haiku-4-5"
+  ];
   piHermesMemoryConfig = {
     childExtensionPaths = [ "npm:pi-claude-bridge" ];
     reviewRecentMessages = 30;
+    llmModelOverride = sideModels;
+  };
+  piAutonameConfig = {
+    enabled = true;
+    model = builtins.head sideModels;
+    fallbackModels = builtins.tail sideModels;
+    cooldownMinutes = 10;
+    debug = false;
+    respectManualName = false;
   };
   piSubagentsSettings = {
     maxConcurrent = 4;
@@ -394,6 +410,7 @@ in
     ${writePiHermesMemoryConfig}
     ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
+    ${lib.optionalString (piPackageEnabled "npm:pi-autoname") (helpers.writeJson "$HOME/.pi/agent/pi-autoname.json" piAutonameConfig)}
     rm -f "$HOME/.pi/agent/models.json"
     ${patchPiClaudeStyleTools}
     ${helpers.copyFile "$HOME/.pi/agent/extensions/chutes-provider.ts" ./patches/chutes-provider.ts}

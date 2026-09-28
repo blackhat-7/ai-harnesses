@@ -104,6 +104,14 @@ let
         "code-review-graph"
         "serve"
       ];
+      # Semantic search embeds with the local CPU embedding server (`lct up local`).
+      # llama-server serves one model and ignores the name; the key is unused.
+      env = {
+        CRG_OPENAI_BASE_URL = "http://pc:6870/v1";
+        CRG_OPENAI_MODEL = "qwen3-embedding-0.6b";
+        CRG_OPENAI_API_KEY = "local";
+        CRG_ACCEPT_CLOUD_EMBEDDINGS = "1";
+      };
     };
     github = {
       type = "http";
