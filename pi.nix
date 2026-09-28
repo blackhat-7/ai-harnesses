@@ -256,7 +256,7 @@ let
       defaultMode = "full";
     };
   };
-  # Background side jobs: the local CPU side model under `pi --local` (local-side is
+  # Session titles: the local CPU side model under `pi --local` (local-side is
   # registered only then, see patches/local-model-provider.ts), otherwise Haiku.
   sideModels = [
     "local-side/side"
@@ -265,7 +265,9 @@ let
   piHermesMemoryConfig = {
     childExtensionPaths = [ "npm:pi-claude-bridge" ];
     reviewRecentMessages = 30;
-    llmModelOverride = sideModels;
+    # No llmModelOverride: its subprocess fallback passes the first entry verbatim to
+    # a child pi that lacks local-side, so a chain starting with it breaks cloud
+    # sessions. Reviews follow the session model instead.
   };
   piAutonameConfig = {
     enabled = true;
