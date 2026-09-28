@@ -14,6 +14,8 @@ type ModelResponse = {
       n_ctx_train?: number;
     };
   }>;
+  // llama-server's Ollama-style list; "multimodal" means a projector is loaded.
+  models?: Array<{ model: string; capabilities?: string[] }>;
 };
 
 export function modelId(id: string): string {
@@ -28,9 +30,10 @@ async function discoverModels(baseUrl: string, signal?: AbortSignal) {
   });
   if (!response.ok) throw new Error(`Local model discovery failed: HTTP ${response.status}`);
 
-  const { data } = (await response.json()) as ModelResponse;
+  const { data, models = [] } = (await response.json()) as ModelResponse;
   return data.map((model) => {
     const id = modelId(model.id);
+    const vision = models.some((m) => m.model === model.id && m.capabilities?.includes("multimodal"));
     return {
       id,
       name: id,
@@ -41,7 +44,7 @@ async function discoverModels(baseUrl: string, signal?: AbortSignal) {
           ? { minimal: "low", high: "xhigh", xhigh: "xhigh" }
           : {}),
       },
-      input: ["text"],
+      input: vision ? ["text", "image"] : ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: model.meta?.n_ctx ?? model.meta?.n_ctx_train ?? 128000,
       maxTokens: 32768,

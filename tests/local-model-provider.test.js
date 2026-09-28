@@ -172,3 +172,33 @@ test("without --local nothing changes at session start", async () => {
     global.fetch = originalFetch;
   }
 });
+
+test("a model with a loaded projector accepts images", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      data: [{ id: "/m/Vision.gguf" }, { id: "/m/Text.gguf" }],
+      models: [
+        { model: "/m/Vision.gguf", capabilities: ["completion", "multimodal"] },
+        { model: "/m/Text.gguf", capabilities: ["completion"] },
+      ],
+    }),
+  });
+
+  try {
+    let provider;
+    await registerLocalModels({
+      registerFlag() {},
+      on() {},
+      registerProvider(_id, config) {
+        provider = config;
+      },
+    });
+
+    assert.deepEqual(provider.models[0].input, ["text", "image"]);
+    assert.deepEqual(provider.models[1].input, ["text"]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
