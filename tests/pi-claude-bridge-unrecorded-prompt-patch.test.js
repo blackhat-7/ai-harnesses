@@ -63,7 +63,7 @@ test("prose beside a one-shot tool call is dropped, only for one-shot queries", 
   const { indexEdits } = require("../patches/patch-pi-claude-bridge-unrecorded-prompt.js");
   const index = [
     "function markStreamComplete(stream) {}",
-    "\tconst promptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);",
+    "\t\tpromptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);",
     "\tif (event?.type === \"message_stop\" && c.turnSawToolCall) {",
     "",
   ].join("\n");

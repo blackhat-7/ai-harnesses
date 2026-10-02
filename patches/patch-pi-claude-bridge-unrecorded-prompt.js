@@ -104,11 +104,11 @@ const indexEdits = [
     ].join("\n"),
   },
   {
-    oldText: "\tconst promptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);\n",
+    oldText: "\t\tpromptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);\n",
     newText: [
-      "\tconst promptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);",
+      "\t\tpromptCapture = promptCaptures.resolveOrDerive(context.systemPrompt);",
       // The top-level context is reused by the next query, so the mark must be cleared too.
-      `\tif (promptCapture?.unrecorded) oneShotQueries.add(queryCtx); else oneShotQueries.delete(queryCtx); // ${PATCH_MARKER}`,
+      `\t\tif (promptCapture?.unrecorded) oneShotQueries.add(queryCtx); else oneShotQueries.delete(queryCtx); // ${PATCH_MARKER}`,
       "",
     ].join("\n"),
   },
