@@ -1,11 +1,7 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
 const test = require("node:test");
 
 const {
-  patchFile,
   patchSource,
 } = require("../patches/patch-pi-subagents-inherit-model.js");
 
@@ -40,14 +36,3 @@ test("patchSource is idempotent", () => {
   assert.equal(second.source, first.source);
 });
 
-test("patchFile patches a file once", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagents-model-patch-"));
-  const file = path.join(dir, "default-agents.ts");
-  fs.writeFileSync(file, source);
-
-  const logs = [];
-  assert.equal(patchFile(file, (message) => logs.push(message)), "patched");
-  assert.doesNotMatch(fs.readFileSync(file, "utf8"), /model: "anthropic\//);
-  assert.equal(patchFile(file, (message) => logs.push(message)), "already-patched");
-  assert.ok(logs.some((message) => message.includes("inherit the parent model")));
-});

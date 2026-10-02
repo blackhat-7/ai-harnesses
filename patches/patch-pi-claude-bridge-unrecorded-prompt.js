@@ -40,10 +40,12 @@ const promptCaptureEdits = [
     // wording is the most volatile part of this block and 0.8.0 rewrote it, which
     // silently dropped this edit and put the throw back. `closestKnown` and the
     // `onDiagnose` call above it are left in place, so a miss still reaches the
-    // bridge's debug log; only the throw becomes a forward.
-    startText: "\t\t\tthrow new Error(\n",
-    endText: "\t\t\t);\n",
+    // bridge's debug log; only the throw becomes a forward. Both edges start at a
+    // newline: 0.9.1 added a deeper-nested throw, which a bare indent also matches.
+    startText: "\n\t\t\tthrow new Error(\n",
+    endText: "\n\t\t\t);\n",
     newText: [
+      "",
       `\t\t\t// ${PATCH_MARKER}: pi-automode's classifier builds its own prompt, which`,
       "\t\t\t// before_agent_start never records. Throwing here makes automode fail closed and",
       "\t\t\t// block every tool call. An unrecorded prompt has no pi context files or skills",
