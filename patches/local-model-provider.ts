@@ -40,9 +40,11 @@ async function discoverModels(baseUrl: string, signal?: AbortSignal) {
       reasoning: true,
       thinkingLevelMap: {
         off: "none",
+        // Other local templates only switch thinking on or off and ignore "low", which then
+        // means full thinking: the auto-mode classifier ("low", 512 tokens) overran and blocked tools.
         ...(id.includes("Qwen3.8")
           ? { minimal: "low", high: "xhigh", xhigh: "xhigh" }
-          : {}),
+          : { minimal: "none", low: "none" }),
       },
       input: vision ? ["text", "image"] : ["text"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },

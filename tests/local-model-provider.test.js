@@ -202,3 +202,28 @@ test("a model with a loaded projector accepts images", async () => {
     global.fetch = originalFetch;
   }
 });
+
+test("models without effort levels map low thinking to off", async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({ data: [{ id: "swarm" }, { id: "Swift-Qwen3.8-27B-Q4_K_S" }] }),
+  });
+
+  try {
+    let provider;
+    await registerLocalModels({
+      registerFlag() {},
+      on() {},
+      registerProvider(_id, config) {
+        provider = config;
+      },
+    });
+
+    const [plain, qwen] = provider.models;
+    assert.equal(plain.thinkingLevelMap.low, "none");
+    assert.equal(qwen.thinkingLevelMap.minimal, "low");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
