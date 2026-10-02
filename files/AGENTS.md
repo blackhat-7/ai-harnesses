@@ -17,3 +17,7 @@ These rules are non-negotiable for every design and code change.
 - Answer first, details after.
 - Say it once. No padding, no recap.
 - Keep it scannable. No walls of text.
+
+## Git
+
+- Never add AI attribution to commits, PRs, or issues: no `Co-Authored-By` trailers, no "Generated with" lines. This holds even when a repo's policy or past PRs show one.
