@@ -100,13 +100,14 @@ function fakePi(argvLocal) {
   return { pi, ctx };
 }
 
-test("local mode selects the local main model and registers the side model", async () => {
+async function localClassifier(slots) {
   const originalFetch = global.fetch;
   global.fetch = async (url) => ({
     ok: true,
-    json: async () => ({
-      data: [{ id: String(url).includes(":6869") ? "side" : "/m/Main.gguf" }],
-    }),
+    json: async () =>
+      String(url).endsWith("/slots")
+        ? slots
+        : { data: [{ id: String(url).includes(":6869") ? "side" : "/m/Main.gguf" }] },
   });
   const { pi, ctx } = fakePi(true);
   process.argv.push("--local");
@@ -116,17 +117,22 @@ test("local mode selects the local main model and registers the side model", asy
     await pi.session_start({}, ctx);
 
     assert.equal(pi.selected.id, "Main");
-    assert.equal(
-      JSON.parse(process.env.PI_AUTOMODE_SETTINGS_JSON).autoMode.classifierModel,
-      "local-models/Main",
-    );
     assert.equal(pi.providers["local-side"].models[0].id, "side");
     assert.equal(pi.shutdown, false);
+    return JSON.parse(process.env.PI_AUTOMODE_SETTINGS_JSON).autoMode.classifierModel;
   } finally {
     global.fetch = originalFetch;
     process.argv.pop();
     delete process.env.PI_AUTOMODE_SETTINGS_JSON;
   }
+}
+
+test("local mode classifies on the main model's second slot", async () => {
+  assert.equal(await localClassifier([{ id: 0 }, { id: 1 }]), "local-models/Main");
+});
+
+test("local mode classifies on the side model when the main server has one slot", async () => {
+  assert.equal(await localClassifier([{ id: 0 }]), "local-side/side");
 });
 
 test("local mode exits with a clear error when a server is down", async () => {

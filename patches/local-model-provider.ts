@@ -58,6 +58,18 @@ async function discoverModels(baseUrl: string, signal?: AbortSignal) {
   });
 }
 
+// Parallel requests the main server can hold; an unreachable server counts as one.
+async function slotCount(): Promise<number> {
+  try {
+    const response = await fetch(new URL("/slots", BASE_URL), {
+      signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
+    });
+    return response.ok ? ((await response.json()) as unknown[]).length : 1;
+  } catch {
+    return 1;
+  }
+}
+
 async function discoverOrExplain(baseUrl: string) {
   try {
     const models = await discoverModels(baseUrl);
@@ -79,10 +91,14 @@ export default async function (pi: ExtensionAPI) {
 
   // The auto-mode classifier runs before every tool call, so it uses the GPU model's
   // second slot (~2 s) rather than the CPU side model (10-25 s, timing out when calls
-  // run in parallel). pi-automode reads this variable when it loads at session start.
+  // run in parallel). Strata has one slot: a classifier pass there evicts the chat's
+  // cache (a 20k-token re-read per tool call), so it goes to the side model instead.
+  // pi-automode reads this variable when it loads at session start.
   if (process.argv.includes("--local") && models[0]) {
     process.env.PI_AUTOMODE_SETTINGS_JSON = JSON.stringify({
-      autoMode: { classifierModel: `local-models/${models[0].id}` },
+      autoMode: {
+        classifierModel: (await slotCount()) > 1 ? `local-models/${models[0].id}` : "local-side/side",
+      },
     });
   }
 
