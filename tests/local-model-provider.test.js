@@ -87,6 +87,9 @@ function fakePi(argvLocal) {
       pi.selected = model;
       return true;
     },
+    setThinkingLevel(level) {
+      pi.thinking = level;
+    },
   };
   const ctx = {
     modelRegistry: {
@@ -116,6 +119,7 @@ test("local mode selects the local main model and registers the side model", asy
     await pi.session_start({}, ctx);
 
     assert.equal(pi.selected.id, "Main");
+    assert.equal(pi.thinking, "max");
     assert.equal(
       JSON.parse(process.env.PI_AUTOMODE_SETTINGS_JSON).autoMode.classifierModel,
       "local-models/Main",

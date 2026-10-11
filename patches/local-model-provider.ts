@@ -111,6 +111,9 @@ export default async function (pi: ExtensionAPI) {
       registerMain(main);
       const model = ctx.modelRegistry.find("local-models", main[0].id);
       if (!model || !(await pi.setModel(model))) throw new Error(`cannot select local-models/${main[0].id}`);
+      // Local tokens are free: think as hard as the model allows. Pi clamps "max" down to the
+      // highest supported level (xhigh for Qwen3.8).
+      pi.setThinkingLevel("max");
     } catch (error) {
       // Printed on exit, after the TUI has restored the terminal; print mode has no
       // shutdown handler, so it exits directly.
