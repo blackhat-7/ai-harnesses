@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  classifierOptions,
   default: registerLocalModels,
   modelId,
 } = require("../patches/local-model-provider.ts");
@@ -230,4 +231,15 @@ test("models without effort levels map low thinking to off", async () => {
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("auto-mode classifier requests force the decision call at temperature 0", () => {
+  const options = { maxTokens: 1200 };
+  assert.deepEqual(classifierOptions({ tools: [{ name: "classifier_decision" }] }, options), {
+    maxTokens: 1200,
+    toolChoice: "required",
+    temperature: 0,
+  });
+  assert.equal(classifierOptions({ tools: [{ name: "read" }, { name: "bash" }] }, options), options);
+  assert.equal(classifierOptions({}, options), options);
 });

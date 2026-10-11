@@ -66,6 +66,14 @@ async function discoverOrExplain(baseUrl: string) {
   throw new Error(`no model at ${baseUrl}; start the servers with 'lct up local'`);
 }
 
+// pi-automode's detailed classifier must reply with exactly one classifier_decision call and
+// fails closed otherwise. At default sampling the local model added stray text or flipped
+// decisions; forcing the call at temperature 0 gave valid, identical replies.
+export function classifierOptions<T extends object>(context: { tools?: { name: string }[] }, options?: T) {
+  const classifier = context.tools?.length === 1 && context.tools[0].name === "classifier_decision";
+  return classifier ? { ...options, toolChoice: "required", temperature: 0 } : options;
+}
+
 export default async function (pi: ExtensionAPI) {
   // `pi --local`: the session and the side roles run on the local servers. Side roles
   // (titles, memory reviews) name local-side first and fall back to cloud Haiku, so
@@ -94,6 +102,9 @@ export default async function (pi: ExtensionAPI) {
       api: "openai-completions",
       models,
       refreshModels: ({ signal }) => discoverModels(BASE_URL, signal),
+      // Required lazily: pi resolves its own pi-ai for extensions, the unit tests have none.
+      streamSimple: (model, context, options) =>
+        require("@earendil-works/pi-ai").streamSimpleOpenAICompletions(model, context, classifierOptions(context, options)),
     });
   registerMain(models);
 
