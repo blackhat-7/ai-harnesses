@@ -15,6 +15,7 @@ let
     github = true;
     aftershoot-mcp = true;
     atlassian = true;
+    slack = true;
   };
   opencodeMcpServer =
     name: v:

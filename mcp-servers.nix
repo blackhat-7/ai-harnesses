@@ -143,6 +143,10 @@ let
       command = "npx";
       args = [ "@playwright/mcp@latest" ];
     };
+    slack = {
+      command = "node";
+      args = [ "${./scripts/slack-mcp.mjs}" ];
+    };
     linear = {
       command = "npx";
       args = [

@@ -27,9 +27,12 @@ let
     ] (builtins.readFile ./scripts/claude-local.sh);
   };
 
-  # Claude Code reaches Atlassian through the claude.ai Rovo connector, so the
-  # local MCP server would only duplicate it.
-  claudeMcpServers = builtins.removeAttrs mcpData.mcpServers [ "atlassian" ];
+  # Claude Code reaches Atlassian and Slack through claude.ai connectors, so the
+  # local MCP servers would only duplicate them (slack would call Claude Code itself).
+  claudeMcpServers = builtins.removeAttrs mcpData.mcpServers [
+    "atlassian"
+    "slack"
+  ];
 
   hasMcp = name: builtins.hasAttr name claudeMcpServers;
   claudeMcpAllows =
