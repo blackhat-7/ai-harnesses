@@ -59,6 +59,7 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
 - Pi uses `pi-lean-ctx` in additive, lean-profile mode for compressed reads and persistent caching while keeping native bash on the readonly-bash permission path.
 - `code-review-graph` is available through the shared MCP catalog and runs lazily via `uvx`.
+- `pi --lean` (`patches/lean-mode.ts`) cuts the fixed prompt from ~20k to ~9k tokens for small-context local models (`pi --local --lean`): it hides the tools and skills that `piLeanConfig` in `pi.nix` leaves out. Hidden skills still run via `/skill:name`.
 
 ## Local models in Claude Code
 
@@ -135,6 +136,7 @@ Home Manager writes:
 - `~/.pi/agent/extensions/pi-permission-system/config.json`
 - `~/.pi/agent/extensions/pi-lean-ctx/config.json`
 - `~/.pi/agent/subagents.json`
+- `~/.pi/agent/lean.json`
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/web-search.json`
 - `~/.config/mcp/mcp.json`

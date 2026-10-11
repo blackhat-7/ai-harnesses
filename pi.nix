@@ -137,6 +137,7 @@ let
       "${./readonly-bash-classifier.js}"
       "${./patches/pi-mouse.js}"
       "${./patches/local-model-provider.ts}"
+      "${./patches/lean-mode.ts}"
     ] ++ lib.optionals piPermissionSystemEnabled [
       "${./patches/pi-permission-dialog-queue.js}"
     ];
@@ -289,6 +290,23 @@ let
     ];
     "app.message.followUp" = [ "shift+alt+enter" ];
   };
+  # `pi --lean` (patches/lean-mode.ts): what local models never or rarely used in past
+  # sessions. Browser MCP, web and bestiary stay; each listed skill costs ~270 tokens.
+  piLeanConfig = {
+    excludeTools = [
+      "mcp__code_review_graph"
+      "skill_manage"
+      "memory_*"
+      "session_search"
+      "AskClaude"
+      "session_move"
+      "subagent"
+      "steer_subagent"
+      "get_subagent_result"
+      "automode_inspect"
+    ];
+    skills = [ "personal-info" "jeeves" "generate-image" "mermaid-diagram" "animated-diagram" ];
+  };
   piWebSearchConfig = {
     provider = "exa";
     workflow = "none";
@@ -412,6 +430,7 @@ in
     ${writePiHermesMemoryConfig}
     ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
+    ${helpers.writeJson "$HOME/.pi/agent/lean.json" piLeanConfig}
     ${lib.optionalString (piPackageEnabled "npm:pi-autoname") (helpers.writeJson "$HOME/.pi/agent/pi-autoname.json" piAutonameConfig)}
     rm -f "$HOME/.pi/agent/models.json"
     ${patchPiClaudeStyleTools}
