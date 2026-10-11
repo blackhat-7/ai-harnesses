@@ -22,25 +22,32 @@ const READ_TOOLS = [
   "search_users",
 ].map((name) => `mcp__claude_ai_Slack__slack_${name}`);
 
-const SYSTEM_PROMPT =
-  "You answer Slack questions for another agent using the Slack tools. Quote message text verbatim with author, time and permalink. Do not paraphrase or guess.";
+const SYSTEM_PROMPT = [
+  "You answer Slack questions for another agent using the Slack tools. Never guess.",
+  "For a long time range, split it into one window per day and read all windows in parallel in one turn,",
+  "with response_format concise and limit 25, following cursors until done.",
+  "For counts and stats, answer with the numbers and a few examples, not every message.",
+  "When asked for messages, quote them verbatim with author, time and permalink.",
+].join(" ");
 
+// Lean like a one-shot call: only the Slack connector loads, no built-in tools, and a
+// short system prompt in place of Claude Code's default one.
 const claudeArgs = [
   "-p",
   "--model", "haiku",
   "--no-session-persistence",
-  // ToolSearch keeps the other MCP servers' tools deferred instead of in context.
-  "--tools", "ToolSearch",
+  "--settings", JSON.stringify({ allowedMcpServers: [{ serverUrl: "https://mcp.slack.com/*" }] }),
+  "--tools", "",
   // dontAsk denies anything not allowed here, whatever the user's default mode is.
   "--permission-mode", "dontAsk",
   "--allowedTools", READ_TOOLS.join(","),
-  "--append-system-prompt", SYSTEM_PROMPT,
+  "--system-prompt", SYSTEM_PROMPT,
 ];
 
 const tool = {
   name: "slack",
   description:
-    "Read Slack (search messages, read channels and threads, look up users and channels). Describe what you need in plain language. Read-only; slow (~10s+).",
+    "Read Slack (search messages, read channels and threads, look up users and channels). Describe everything you need in one plain-language request; it reads in parallel itself. Read-only. ~6s for a lookup; counting hundreds of messages takes about a minute.",
   inputSchema: {
     type: "object",
     properties: { request: { type: "string", description: "What to find or read in Slack." } },
@@ -53,8 +60,8 @@ function askClaude(request) {
     const child = execFile(
       "claude",
       claudeArgs,
-      // Without a prewait, -p answers before the claude.ai connectors finish connecting.
-      { env: { ...process.env, CLAUDE_CODE_MCP_CONNECTOR_PREWAIT_MS: "20000" }, maxBuffer: 16 * 1024 * 1024 },
+      // Otherwise -p can answer before the Slack connector finishes connecting.
+      { env: { ...process.env, MCP_CONNECTION_NONBLOCKING: "0" }, maxBuffer: 16 * 1024 * 1024 },
       (error, stdout, stderr) =>
         resolve(error ? { text: `${error.message}\n${stderr}`, isError: true } : { text: stdout.trim(), isError: false }),
     );

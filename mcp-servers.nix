@@ -191,6 +191,11 @@ let
     // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" ]) {
       auth = "oauth";
     }
+    // lib.optionalAttrs (name == "slack") {
+      # One tool, so expose it directly; a multi-day read runs past the 60s default.
+      directTools = true;
+      requestTimeoutMs = 300000;
+    }
     // lib.optionalAttrs (name == "atlassian") {
       auth = "oauth";
       oauth = {
