@@ -147,6 +147,12 @@ let
       command = "node";
       args = [ "${./scripts/slack-mcp.mjs}" ];
     };
+    # ReVa runs inside the Ghidra GUI (ghidra.withExtensions [ reva ]) and is
+    # reachable only while a project is open there.
+    reva = {
+      type = "http";
+      url = "http://localhost:8080/mcp/message";
+    };
     linear = {
       command = "npx";
       args = [
