@@ -6,7 +6,7 @@
 }:
 let
   helpers = import ./helpers.nix { inherit pkgs; };
-  mcpData = import ./mcp-servers.nix { inherit lib config; };
+  mcpData = import ./mcp-servers.nix { inherit pkgs lib config; };
   mode = config.aiHarnesses.mode or "restricted";
   isYolo = mode == "yolo";
   isRestricted = mode == "restricted";

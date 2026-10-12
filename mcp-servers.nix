@@ -1,9 +1,12 @@
 {
+  pkgs,
   lib,
   config,
   ...
 }:
 let
+  ghidraWithReva = pkgs.ghidra.withExtensions (p: [ p.reva ]);
+
   mcpEnable = config.aiHarnesses.mcp.enable or true;
   selectedServers = config.aiHarnesses.mcp.enabledServers or null;
 
@@ -147,11 +150,24 @@ let
       command = "node";
       args = [ "${./scripts/slack-mcp.mjs}" ];
     };
-    # ReVa runs inside the Ghidra GUI (ghidra.withExtensions [ reva ]) and is
-    # reachable only while a project is open there.
+    # Headless Ghidra; no GUI needed. The Python CLI must match the nixpkgs
+    # extension version, and ReVa 7.3.0 imports an API that mcp 2.x renamed.
+    # Nix Ghidra finds extensions through NIX_GHIDRAHOME, not the install dir.
     reva = {
-      type = "http";
-      url = "http://localhost:8080/mcp/message";
+      command = "uvx";
+      args = [
+        "--python"
+        "3.12"
+        "--with"
+        "mcp<2"
+        "--from"
+        "reverse-engineering-assistant==${pkgs.ghidra-extensions.reva.version}"
+        "mcp-reva"
+      ];
+      env = {
+        GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
+        NIX_GHIDRAHOME = "${ghidraWithReva}/lib/ghidra/Ghidra";
+      };
     };
     linear = {
       command = "npx";
