@@ -148,7 +148,17 @@ let
     };
     slack = {
       command = "node";
-      args = [ "${./scripts/slack-mcp.mjs}" ];
+      args = [
+        "${./scripts/connector-mcp.mjs}"
+        "slack"
+      ];
+    };
+    gmail = {
+      command = "node";
+      args = [
+        "${./scripts/connector-mcp.mjs}"
+        "gmail"
+      ];
     };
     # Headless Ghidra; no GUI needed. The Python CLI must match the nixpkgs
     # extension version, and ReVa 7.3.0 imports an API that mcp 2.x renamed.
@@ -213,7 +223,7 @@ let
     // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" ]) {
       auth = "oauth";
     }
-    // lib.optionalAttrs (name == "slack") {
+    // lib.optionalAttrs (builtins.elem name [ "slack" "gmail" ]) {
       # One tool, so expose it directly; a multi-day read runs past the 60s default.
       directTools = true;
       requestTimeoutMs = 300000;

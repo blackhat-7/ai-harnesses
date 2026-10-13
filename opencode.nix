@@ -16,6 +16,7 @@ let
     aftershoot-mcp = true;
     atlassian = true;
     slack = true;
+    gmail = true;
   };
   opencodeMcpServer =
     name: v:
