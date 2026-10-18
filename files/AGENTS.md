@@ -24,6 +24,6 @@ These rules are non-negotiable for every design and code change.
 
 ## Project notes
 
-- A repo may have a private `AGENTS.local.md` at its root. It is globally gitignored. Read it at session start if it exists.
-- When the user corrects a mistake or says "remember this", record the lesson there. Create the file if missing.
+- Private per-repo notes live in `~/Documents/Notes/agents/<repo>.md`. `<repo>` is the repo name from the `origin` remote, or the repo root folder name if there is no remote. Read it at session start if it exists.
+- When the user corrects a mistake or says "remember this", record the lesson there, not in a built-in memory tool. Create the file if missing. Don't commit it; the user syncs the Notes repo.
 - Keep only what nearly every future session in that repo needs. Don't repeat what the code shows; point to the file or command. Prune or rewrite entries instead of appending.

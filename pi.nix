@@ -190,6 +190,12 @@ let
     classifierTimeoutMs = 60000;
     allowInsideWorkingDirectory = true;
   };
+  # Per-repo agent notes (see files/AGENTS.md) live outside the working directory.
+  piAutomodeConfig.permissions.allow = map (tool: "${tool}(${config.home.homeDirectory}/Documents/Notes/agents/*)") [
+    "read"
+    "write"
+    "edit"
+  ];
   piRestrictedPermission = {
     "*" = "ask";
     skill = "allow";

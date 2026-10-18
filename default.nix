@@ -20,8 +20,6 @@
     }))
   ];
 
-  config.programs.git.ignores = [ "AGENTS.local.md" ];
-
   options.aiHarnesses = {
     mode = lib.mkOption {
       type = lib.types.enum [ "restricted" "auto" "yolo" ];
