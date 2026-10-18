@@ -116,13 +116,6 @@ let
         CRG_ACCEPT_CLOUD_EMBEDDINGS = "1";
       };
     };
-    github = {
-      type = "http";
-      url = "https://api.githubcopilot.com/mcp/";
-      headers = {
-        Authorization = "Bearer \${GITHUB_MCP_TOKEN}";
-      };
-    };
     chrome-devtools = {
       command = "npx";
       args = [
@@ -214,11 +207,6 @@ let
     base
     // {
       lifecycle = v.lifecycle or "lazy";
-    }
-    // lib.optionalAttrs (name == "github") {
-      headers = builtins.removeAttrs (base.headers or { }) [ "Authorization" ];
-      auth = "bearer";
-      bearerTokenEnv = "GITHUB_MCP_TOKEN";
     }
     // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" ]) {
       auth = "oauth";

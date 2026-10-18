@@ -12,7 +12,6 @@ let
   hasMcp = name: builtins.hasAttr name mcpData.mcpServers;
   opencodeEnabled = {
     bestiary = true;
-    github = true;
     aftershoot-mcp = true;
     atlassian = true;
     slack = true;

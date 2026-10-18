@@ -40,7 +40,6 @@ let
     lib.optionals (hasMcp "aftershoot-mcp") [ "mcp__aftershoot-mcp" ]
     ++ lib.optionals (hasMcp "bestiary") [ "mcp__bestiary" ]
     ++ lib.optionals (hasMcp "chrome-devtools") [ "mcp__chrome-devtools" ]
-    ++ lib.optionals (hasMcp "github") [ "mcp__github" ]
     ++ lib.optionals (hasMcp "playwright") [ "mcp__playwright" ]
     ++ lib.optionals (hasMcp "linear") [
       "mcp__linear__linear_getViewer"

@@ -29,7 +29,7 @@ aiHarnesses.mode = "restricted"; # default: ask for writes/unknown bash
 # aiHarnesses.mode = "yolo";     # container/sandbox use: allow broadly
 
 aiHarnesses.mcp.enable = true;         # false writes empty MCP configs
-aiHarnesses.mcp.enabledServers = null; # all known servers, or e.g. [ "github" "bestiary" ]
+aiHarnesses.mcp.enabledServers = null; # all known servers, or e.g. [ "bestiary" "playwright" ]
 
 # Optional: omit packages, uninstall stale copies, and skip their patches/setup.
 aiHarnesses.pi.disabledPackages = [ "npm:pi-claude-style-tools" ];
@@ -53,7 +53,6 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - Pi config lives in `pi.nix`.
 - Global engineering guidance lives in `files/AGENTS.md` and is linked to each harness's standard user-level instruction path.
 - Provider login/auth is not synced here. Each harness keeps its own auth flow and credentials.
-- GitHub MCP auth uses the `GITHUB_MCP_TOKEN` environment variable.
 - Aftershoot and Atlassian MCP auth use OAuth. Pi requests only Jira/Confluence read/search scopes for Atlassian and hides known write/non-Jira/Confluence tools via `excludeTools`; org-level Atlassian permissions are still the hard read-only boundary.
 - Claude Code does not get the `atlassian` MCP server; Atlassian there comes from the claude.ai Rovo connector. Pi and opencode still use it.
 - The `slack` and `gmail` MCP servers (`scripts/connector-mcp.mjs`) give pi and opencode read-only Slack and Gmail through Claude Code's claude.ai connectors: each call runs `claude -p` on Haiku with only the connector's read tools allowed (~6s for a lookup, about a minute to count hundreds of messages; uses your Claude plan). With `export: true` they save the raw pages to a file for exact counts with code. Slack message permalinks come back as `slack://` links that open the desktop app at the message. Claude Code itself uses the connectors directly.
