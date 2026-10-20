@@ -80,6 +80,13 @@ function saveFailure(request, response) {
   });
 }
 
+// Claude Code sends the claude.ai login token (it keeps the login for connectors);
+// the model server needs no credentials, so they never leave this machine.
+export function forwardHeaders(headers, target, body) {
+  const { authorization, "x-api-key": apiKey, ...rest } = headers;
+  return { ...rest, host: target.host, "content-length": body.length };
+}
+
 function start(upstream, command) {
   const models = JSON.parse(process.env.CLAUDE_LOCAL_MODELS ?? "{}");
   const side = process.env.CLAUDE_LOCAL_SIDE_URL && new URL(process.env.CLAUDE_LOCAL_SIDE_URL);
@@ -102,7 +109,7 @@ function start(upstream, command) {
           port: target.port,
           method: req.method,
           path: target.pathname.replace(/\/$/, "") + req.url,
-          headers: { ...req.headers, host: target.host, "content-length": body.length },
+          headers: forwardHeaders(req.headers, target, body),
         },
         (response) => {
           // Claude Code hides server errors behind silent retries, so keep the

@@ -60,8 +60,9 @@ if [ -n "$context" ]; then
   export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$context"
 fi
 
-unset ANTHROPIC_API_KEY
-export ANTHROPIC_AUTH_TOKEN="local"
+# Keep the claude.ai login: any API key or token takes precedence over it and
+# turns off claude.ai connectors. The shim drops credentials before the model server.
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
 export ANTHROPIC_MODEL="$model"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
@@ -73,9 +74,10 @@ export CLAUDE_CODE_AUTO_MODE_SERVER=0
 
 # MCP tool definitions are sent in full on every request and easily outweigh a
 # local context window (874 tools measured at ~695k tokens here), so local
-# sessions start with none. Pass --mcp-config to choose servers explicitly.
-mcp="--strict-mcp-config"
-case " $* " in *" --mcp-config "*) mcp="" ;; esac
+# sessions load only the Slack and Gmail claude.ai connectors. Pass --mcp-config
+# to choose servers explicitly.
+mcp=(--settings '{"allowedMcpServers":[{"serverUrl":"https://mcp.slack.com/*"},{"serverUrl":"https://gmailmcp.googleapis.com/*"}]}')
+case " $* " in *" --mcp-config "*) mcp=() ;; esac
 
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
-exec node "@shim@" "$base" claude ${mcp:+"$mcp"} "$@"
+exec node "@shim@" "$base" claude "${mcp[@]}" "$@"

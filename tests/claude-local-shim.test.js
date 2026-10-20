@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { rewriteRequest } = require("../scripts/claude-local-shim.mjs");
+const { forwardHeaders, rewriteRequest } = require("../scripts/claude-local-shim.mjs");
 
 test("trailing system messages move into the system field", () => {
   const request = {
@@ -74,4 +74,14 @@ test("unknown models and plain requests are forwarded byte for byte", () => {
   const body = JSON.stringify({ model: "gpt-oss:20b", messages: [{ role: "user", content: "hi" }] });
 
   assert.equal(rewriteRequest(body, { "Qwen-Q4_K_M": "/models/Qwen-Q4_K_M.gguf" }), body);
+});
+
+test("credentials are not forwarded to the model server", () => {
+  const headers = { authorization: "Bearer sk-ant-oat", "x-api-key": "sk-ant", host: "127.0.0.1:1", "anthropic-version": "2023-06-01" };
+
+  assert.deepEqual(forwardHeaders(headers, new URL("http://pc:6868"), Buffer.from("{}")), {
+    host: "pc:6868",
+    "anthropic-version": "2023-06-01",
+    "content-length": 2,
+  });
 });
