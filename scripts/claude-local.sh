@@ -73,6 +73,9 @@ export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 export CLAUDE_CODE_AUTO_MODE_SERVER=0
 # Tool search needs the API to expand tool references, which a local server cannot.
 export ENABLE_TOOL_SEARCH=false
+# Connect the connectors before the first request; otherwise a prompt sent at
+# startup (Paseo, -p) goes out without them and the model concludes they are missing.
+export MCP_CONNECTION_NONBLOCKING=0
 
 # MCP tool definitions are sent in full on every request and easily outweigh a
 # local context window (874 tools measured at ~695k tokens here), so local
