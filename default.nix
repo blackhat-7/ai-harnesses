@@ -6,6 +6,7 @@
     ./claude.nix
     ./opencode.nix
     ./mcp.nix
+    ./peekaboo.nix
   ];
 
   config.home.file = lib.mkMerge [

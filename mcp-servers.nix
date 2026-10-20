@@ -182,6 +182,13 @@ let
         LINEAR_API_TOKEN = "\${LINEAR_API_KEY}";
       };
     };
+  }
+  // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+    # Computer use: screenshots, clicks, typing. Installed by peekaboo.nix.
+    peekaboo = {
+      command = "peekaboo";
+      args = [ "mcp" ];
+    };
   };
 
   unknownServers =
