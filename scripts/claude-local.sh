@@ -71,13 +71,32 @@ export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # A local server cannot run auto mode's server-side safety checks, so stop
 # Claude Code asking for them and holding the first action behind a notice.
 export CLAUDE_CODE_AUTO_MODE_SERVER=0
+# Tool search needs the API to expand tool references, which a local server cannot.
+export ENABLE_TOOL_SEARCH=false
 
 # MCP tool definitions are sent in full on every request and easily outweigh a
 # local context window (874 tools measured at ~695k tokens here), so local
 # sessions load only the Slack and Gmail claude.ai connectors. Pass --mcp-config
 # to choose servers explicitly.
-mcp=(--settings '{"allowedMcpServers":[{"serverUrl":"https://mcp.slack.com/*"},{"serverUrl":"https://gmailmcp.googleapis.com/*"}]}')
-case " $* " in *" --mcp-config "*) mcp=() ;; esac
+allow='{"allowedMcpServers":[{"serverUrl":"https://mcp.slack.com/*"},{"serverUrl":"https://gmailmcp.googleapis.com/*"}]}'
+if [[ " $* " == *" --mcp-config "* ]]; then
+  args=("$@")
+else
+  # Claude Code keeps only the last --settings, and the Agent SDK (Paseo) passes
+  # its own, so merge the allowlist into any given one.
+  args=(--settings "$allow")
+  while [ $# -gt 0 ]; do
+    if [ "$1" = --settings ] && [ $# -gt 1 ]; then
+      given=$2
+      [ -f "$given" ] && given=$(< "$given")
+      args+=(--settings "$(jq -c --argjson allow "$allow" '. + $allow' <<< "$given")")
+      shift 2
+    else
+      args+=("$1")
+      shift
+    fi
+  done
+fi
 
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
-exec node "@shim@" "$base" claude "${mcp[@]}" "$@"
+exec node "@shim@" "$base" claude "${args[@]}"

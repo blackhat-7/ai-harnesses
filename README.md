@@ -87,6 +87,9 @@ claude-local -p 'hello'          # all other arguments go to claude
   request: 847 MCP tools measured here cost ~695k prompt tokens against a 131k
   window, while the 27 built-in tools cost ~20k. Pass `--mcp-config <file>` to
   load chosen servers instead.
+  Claude Code keeps only the last `--settings`, so the wrapper merges the
+  allowlist into any `--settings` it is given (the Agent SDK, e.g. Paseo,
+  passes one). Tool search is off: a local server cannot expand tool references.
 - Sessions keep the claude.ai login, since an API key or token turns the
   connectors off. The shim drops the login's credentials before the model server.
 - Claude Code hides server errors behind silent retries, so the shim writes the
