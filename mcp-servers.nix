@@ -85,28 +85,27 @@ let
     "search:confluence"
   ];
 
+  # Installed once as uv tools (mcp.nix) and upgraded by `just update` in dotfiles.
+  # uvx would build a fresh environment each time a dependency releases and keep
+  # every old one in the cache (about 440 MB each for code-review-graph).
+  uvToolSources = {
+    bestiary = "--with yt-dlp git+https://github.com/blackhat-7/bestiary.git@main";
+    code-review-graph = "code-review-graph";
+  };
+  uvToolBin = name: "${config.home.homeDirectory}/.local/bin/${name}";
+
   allMcpServers = {
     bestiary = {
-      command = "uvx";
-      args = [
-        "--with"
-        "yt-dlp"
-        "--from"
-        "git+https://github.com/blackhat-7/bestiary.git@main"
-        "bestiary"
-        "serve"
-      ];
+      command = uvToolBin "bestiary";
+      args = [ "serve" ];
       env = {
         REDDIT_CLIENT_ID = "\${REDDIT_CLIENT_ID}";
         REDDIT_CLIENT_SECRET = "\${REDDIT_CLIENT_SECRET}";
       };
     };
     code-review-graph = {
-      command = "uvx";
-      args = [
-        "code-review-graph"
-        "serve"
-      ];
+      command = uvToolBin "code-review-graph";
+      args = [ "serve" ];
       # Semantic search embeds with the local CPU embedding server (`lct up local`).
       # llama-server serves one model and ignores the name; the key is unused.
       env = {
@@ -243,4 +242,5 @@ in
     mcpServers
     ;
   piMcpServers = builtins.mapAttrs piMcpServer mcpServers;
+  uvTools = lib.filterAttrs (name: _: mcpServers ? ${name}) uvToolSources;
 }

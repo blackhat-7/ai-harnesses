@@ -19,4 +19,15 @@ in
     rm -f "$HOME/.config/mcp/mcp.catalog.json"
     cp "$HOME/.config/mcp/mcp.json" "$HOME/.config/mcp/mcp.catalog.json"
   '';
+
+  # Install only when missing; `just update` in dotfiles does the upgrades.
+  home.activation.installMcpTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    export PATH=${lib.makeBinPath [ pkgs.git ]}:$PATH
+    ${lib.concatStrings (
+      lib.mapAttrsToList (name: source: ''
+        [ -x "$HOME/.local/bin/${name}" ] || run ${pkgs.uv}/bin/uv tool install ${source} \
+          || echo "warning: could not install ${name}; its MCP server won't start" >&2
+      '') mcpData.uvTools
+    )}
+  '';
 }

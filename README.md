@@ -58,7 +58,7 @@ nix build .#homeConfigurations.<name>.activationPackage \
 - The `slack` and `gmail` MCP servers (`scripts/connector-mcp.mjs`) give pi and opencode read-only Slack and Gmail through Claude Code's claude.ai connectors: each call runs `claude -p` on Haiku with only the connector's read tools allowed (~6s for a lookup, about a minute to count hundreds of messages; uses your Claude plan). With `export: true` they save the raw pages to a file for exact counts with code. Slack message permalinks come back as `slack://` links that open the desktop app at the message. Claude Code itself uses the connectors directly.
 - `readonly-bash` is consumed as a flake input and exposed to Pi/opencode wrappers.
 - Pi uses `pi-lean-ctx` in additive, lean-profile mode for compressed reads and persistent caching while keeping native bash on the readonly-bash permission path.
-- `code-review-graph` is available through the shared MCP catalog and runs lazily via `uvx`.
+- `code-review-graph` and `bestiary` are installed once as uv tools (upgraded by `just update` in dotfiles) and started lazily from the shared MCP catalog.
 - `pi --lean` (`patches/lean-mode.ts`) cuts the fixed prompt from ~20k to ~9k tokens for small-context local models (`pi --local --lean`): it hides the tools and skills that `piLeanConfig` in `pi.nix` leaves out. Hidden skills still run via `/skill:name`.
 
 ## Local models in Claude Code
