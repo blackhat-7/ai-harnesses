@@ -71,7 +71,17 @@ Plain `claude` is untouched and keeps its Anthropic login.
 claude-local                     # first model the server lists
 LOCAL_MODEL=qwen claude-local    # first model id containing "qwen"
 claude-local -p 'hello'          # all other arguments go to claude
+LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch on Claude
 ```
+
+- Without `LOCAL_HELPER_MODEL` everything runs on the local model, including
+  Claude Code's Haiku role (titles, summaries, reading fetched pages), and
+  WebSearch is removed: Claude Code sends its search to the main model as
+  Anthropic's server-side `web_search` tool, which a local server cannot run, so
+  it only ever returned no results.
+- With `LOCAL_HELPER_MODEL` set to a Claude model, that model takes the Haiku
+  role and WebSearch over the claude.ai login (it uses Claude usage and needs
+  the internet). The main model, subagents and auto mode's checks stay local.
 
 - Models are discovered from `GET /v1/models` at startup, never pinned. Each one
   is named after its file (`Qwen3.8-27B-Uncensored-Q4_K_M`), because llama.cpp
@@ -91,7 +101,8 @@ claude-local -p 'hello'          # all other arguments go to claude
   allowlist into any `--settings` it is given (the Agent SDK, e.g. Paseo,
   passes one). Tool search is off: a local server cannot expand tool references.
 - Sessions keep the claude.ai login, since an API key or token turns the
-  connectors off. The shim drops the login's credentials before the model server.
+  connectors off. The shim passes the login's credentials only to Anthropic,
+  never to the model server.
 - Claude Code hides server errors behind silent retries, so the shim writes the
   request and error of any rejected call to `$TMPDIR/claude-local-error.json`.
 - `scripts/claude-local-shim.mjs` is a local proxy that rewrites two things on the
@@ -99,7 +110,8 @@ claude-local -p 'hello'          # all other arguments go to claude
   and it hoists the trailing `role: "system"` message Claude Code sends into the
   top-level `system` field. Strict chat templates (Qwen and friends) reject a
   non-leading system message with HTTP 500, which Claude Code retries silently
-  until the session looks hung.
+  until the session looks hung. With a helper model it sends requests for
+  Claude models, and WebSearch, to `api.anthropic.com` instead.
 
 ## Atlassian MCP auth and read-only setup
 

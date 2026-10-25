@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { forwardHeaders, rewriteRequest } = require("../scripts/claude-local-shim.mjs");
+const { cloudRequest, forwardHeaders, rewriteRequest } = require("../scripts/claude-local-shim.mjs");
 
 test("trailing system messages move into the system field", () => {
   const request = {
@@ -74,6 +74,35 @@ test("unknown models and plain requests are forwarded byte for byte", () => {
   const body = JSON.stringify({ model: "gpt-oss:20b", messages: [{ role: "user", content: "hi" }] });
 
   assert.equal(rewriteRequest(body, { "Qwen-Q4_K_M": "/models/Qwen-Q4_K_M.gguf" }), body);
+});
+
+test("with a helper model, Claude models and WebSearch go to Anthropic", () => {
+  const haiku = JSON.stringify({ model: "claude-haiku-5-5", messages: [{ role: "user", content: "title?" }] });
+  const search = { model: "Flash-Next", tools: [{ type: "web_search_20250305", name: "web_search" }], messages: [] };
+  const local = JSON.stringify({ model: "Flash-Next", tools: [{ name: "Bash" }], messages: [] });
+
+  assert.equal(cloudRequest(haiku, "claude-haiku-5-5"), haiku);
+  assert.deepEqual(JSON.parse(cloudRequest(JSON.stringify(search), "claude-haiku-5-5")), { ...search, model: "claude-haiku-5-5" });
+  assert.equal(cloudRequest(local, "claude-haiku-5-5"), null);
+});
+
+test("without a helper model, everything stays local", () => {
+  const haiku = JSON.stringify({ model: "claude-haiku-5-5", messages: [] });
+  const search = JSON.stringify({ model: "Flash-Next", tools: [{ type: "web_search_20250305" }], messages: [] });
+
+  assert.equal(cloudRequest(haiku, ""), null);
+  assert.equal(cloudRequest(search, undefined), null);
+});
+
+test("credentials go to Anthropic", () => {
+  const headers = { authorization: "Bearer sk-ant-oat", host: "127.0.0.1:1", "anthropic-version": "2023-06-01" };
+
+  assert.deepEqual(forwardHeaders(headers, new URL("https://api.anthropic.com"), Buffer.from("{}")), {
+    authorization: "Bearer sk-ant-oat",
+    host: "api.anthropic.com",
+    "anthropic-version": "2023-06-01",
+    "content-length": 2,
+  });
 });
 
 test("credentials are not forwarded to the model server", () => {

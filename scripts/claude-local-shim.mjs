@@ -7,15 +7,18 @@
 //     hoisted into the top-level `system` field.
 //   - Model names come back from the display names in CLAUDE_LOCAL_MODELS to the
 //     ids the server actually serves.
-//   - Requests for the model "side" (Claude Code's Haiku role) go to the CPU side
-//     server at CLAUDE_LOCAL_SIDE_URL, so background calls do not queue behind the
-//     main model's single slot.
+//   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
+//     models and WebSearch go to Anthropic with the claude.ai login; see
+//     cloudRequest.
 //
 // Usage: claude-local-shim.mjs <upstream-base-url> <command> [args...]
 import fs from "node:fs";
 import http from "node:http";
+import https from "node:https";
 import os from "node:os";
 import { spawn } from "node:child_process";
+
+const anthropic = new URL("https://api.anthropic.com");
 
 const asBlocks = (content) =>
   typeof content === "string" ? [{ type: "text", text: content }] : (content ?? []);
@@ -68,6 +71,20 @@ export function rewriteRequest(body, models = {}) {
   return changed ? JSON.stringify(request) : body;
 }
 
+// The body to send to Anthropic instead of the local server, or null. Only with a
+// helper model: Claude Code's Haiku role then names a Claude model, and WebSearch,
+// which it sends to the main model with Anthropic's server-side search tool,
+// moves to the helper, because a local server cannot run that tool.
+export function cloudRequest(body, helper) {
+  if (!helper) return null;
+  const request = JSON.parse(body);
+  if (String(request.model).startsWith("claude-")) return body;
+  if (request.tools?.some((tool) => String(tool.type).startsWith("web_search"))) {
+    return JSON.stringify({ ...request, model: helper });
+  }
+  return null;
+}
+
 export const failureLog = `${os.tmpdir()}/claude-local-error.json`;
 
 function saveFailure(request, response) {
@@ -81,15 +98,16 @@ function saveFailure(request, response) {
 }
 
 // Claude Code sends the claude.ai login token (it keeps the login for connectors);
-// the model server needs no credentials, so they never leave this machine.
+// only Anthropic gets it, so it never reaches a model server.
 export function forwardHeaders(headers, target, body) {
   const { authorization, "x-api-key": apiKey, ...rest } = headers;
-  return { ...rest, host: target.host, "content-length": body.length };
+  const kept = target.host === anthropic.host ? headers : rest;
+  return { ...kept, host: target.host, "content-length": body.length };
 }
 
 function start(upstream, command) {
   const models = JSON.parse(process.env.CLAUDE_LOCAL_MODELS ?? "{}");
-  const side = process.env.CLAUDE_LOCAL_SIDE_URL && new URL(process.env.CLAUDE_LOCAL_SIDE_URL);
+  const helper = process.env.CLAUDE_LOCAL_HELPER_MODEL;
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
@@ -98,12 +116,12 @@ function start(upstream, command) {
       let target = upstream;
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         try {
-          const rewritten = rewriteRequest(body.toString(), models);
-          body = Buffer.from(rewritten);
-          if (side && JSON.parse(rewritten).model === "side") target = side;
+          const cloud = cloudRequest(body.toString(), helper);
+          if (cloud) target = anthropic;
+          body = Buffer.from(cloud ?? rewriteRequest(body.toString(), models));
         } catch {} // Not JSON we understand: forward it as received.
       }
-      const forwarded = http.request(
+      const forwarded = (target.protocol === "https:" ? https : http).request(
         {
           hostname: target.hostname,
           port: target.port,
