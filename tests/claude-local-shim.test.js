@@ -3,34 +3,58 @@ const test = require("node:test");
 
 const { cloudRequest, forwardHeaders, rewriteRequest, textMessage, webSearchQuery } = require("../scripts/claude-local-shim.mjs");
 
-test("trailing system messages move into the system field", () => {
+const reminder = (text) => ({ type: "text", text: `<system-reminder>\n${text}\n</system-reminder>` });
+
+test("system messages become reminders in the user turn they follow", () => {
+  const result = { type: "tool_result", tool_use_id: "t1", content: "ok" };
   const request = {
     system: [{ type: "text", text: "You are Claude Code." }],
     messages: [
       { role: "user", content: "hi" },
-      { role: "system", content: [{ type: "text", text: "hook context" }] },
+      { role: "system", content: "# Environment" },
+      { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "Bash", input: {} }] },
+      { role: "user", content: [result] },
+      { role: "system", content: [{ type: "text", text: "# Environment update" }, { type: "tool_addition" }] },
     ],
   };
 
-  const result = JSON.parse(rewriteRequest(JSON.stringify(request)));
+  const rewritten = JSON.parse(rewriteRequest(JSON.stringify(request)));
 
-  assert.deepEqual(result.messages, [{ role: "user", content: "hi" }]);
-  assert.deepEqual(result.system, [
-    { type: "text", text: "You are Claude Code." },
-    { type: "text", text: "hook context" },
+  assert.deepEqual(rewritten.system, request.system);
+  assert.deepEqual(rewritten.messages, [
+    { role: "user", content: [{ type: "text", text: "hi" }, reminder("# Environment")] },
+    request.messages[2],
+    { role: "user", content: [result, reminder("# Environment update")] },
   ]);
 });
 
-test("a string system prompt is normalized to blocks", () => {
-  const request = { system: "base prompt", messages: [{ role: "system", content: "extra" }] };
+test("a new system message only extends the prompt the server has cached", () => {
+  const turn = [
+    { role: "user", content: "hi" },
+    { role: "system", content: "# Environment" },
+    { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "cd sub" } }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "" }] },
+  ];
+  const next = [...turn, { role: "system", content: "# Environment update" }];
+  const rewrite = (messages) => JSON.parse(rewriteRequest(JSON.stringify({ system: "base", messages })));
 
-  const result = JSON.parse(rewriteRequest(JSON.stringify(request)));
+  const [before, after] = [rewrite(turn), rewrite(next)];
 
-  assert.deepEqual(result.system, [
-    { type: "text", text: "base prompt" },
-    { type: "text", text: "extra" },
+  assert.equal(after.system, before.system);
+  assert.deepEqual(after.messages.slice(0, 2), before.messages.slice(0, 2));
+  assert.deepEqual(after.messages[2].content.slice(0, -1), before.messages[2].content);
+});
+
+test("a system message with no user turn before it joins the next one, or stands alone at the end", () => {
+  const rewrite = (messages) => JSON.parse(rewriteRequest(JSON.stringify({ messages }))).messages;
+
+  assert.deepEqual(rewrite([{ role: "system", content: "context" }, { role: "user", content: "hi" }]), [
+    { role: "user", content: [reminder("context"), { type: "text", text: "hi" }] },
   ]);
-  assert.deepEqual(result.messages, []);
+  assert.deepEqual(
+    rewrite([{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }, { role: "system", content: "note" }]),
+    [{ role: "user", content: "hi" }, { role: "assistant", content: "hello" }, { role: "user", content: [reminder("note")] }],
+  );
 });
 
 test("display names, including a [1m] selection, become server model ids", () => {

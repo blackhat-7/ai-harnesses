@@ -109,10 +109,14 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch 
   request and error of any rejected call to `$TMPDIR/claude-local-error.json`.
 - `scripts/claude-local-shim.mjs` is a local proxy that rewrites two things on the
   way out: it maps display names back to server ids (from `CLAUDE_LOCAL_MODELS`),
-  and it hoists the trailing `role: "system"` message Claude Code sends into the
-  top-level `system` field. Strict chat templates (Qwen and friends) reject a
-  non-leading system message with HTTP 500, which Claude Code retries silently
-  until the session looks hung. With a helper model it sends requests for
+  and it turns the `role: "system"` messages Claude Code sends inside the
+  conversation (the environment block, then updates such as a changed working
+  directory or a message queued while it works) into `<system-reminder>` text in
+  the user turn where each stands. Strict chat templates (Qwen and friends) reject
+  a non-leading system message with HTTP 500, which Claude Code retries silently
+  until the session looks hung. Moving them into the top-level `system` instead
+  changes the start of the prompt with every update, and the server re-reads the
+  whole conversation (76K tokens, 28 s, measured). With a helper model it sends requests for
   Claude models, and WebSearch, to `api.anthropic.com` instead; without one it
   answers WebSearch from Exa.
 

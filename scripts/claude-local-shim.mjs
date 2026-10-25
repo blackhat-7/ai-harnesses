@@ -1,10 +1,14 @@
 // Rewrites Claude Code's requests on the way to a local model server:
 //
-//   - Claude Code appends a trailing `role: "system"` message (hook and environment
-//     context) to every request. Strict chat templates (Qwen and friends, rendered
-//     by llama.cpp) reject a system message that is not first with HTTP 500, which
-//     Claude Code retries silently until the session looks hung. Those messages are
-//     hoisted into the top-level `system` field.
+//   - Claude Code sends context as `role: "system"` messages inside the conversation:
+//     the environment block after the first prompt, then updates where they happen
+//     (a changed working directory, a message queued while it works, the date).
+//     Strict chat templates (Qwen and friends, rendered by llama.cpp) reject a
+//     system message that is not first with HTTP 500, which Claude Code retries
+//     silently until the session looks hung. Each becomes a <system-reminder> in
+//     the user turn where it stands, as older Claude Code sent them. Moving them
+//     into the top-level `system` instead changed the start of the prompt with
+//     every update, and the server re-read the whole conversation.
 //   - Model names come back from the display names in CLAUDE_LOCAL_MODELS to the
 //     ids the server actually serves.
 //   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
@@ -61,13 +65,26 @@ export function rewriteRequest(body, models = {}) {
   }
 
   if (Array.isArray(request.messages) && request.messages.some((m) => m.role === "system")) {
-    const system = asBlocks(request.system);
     const messages = [];
+    // Reminders with no user turn before them wait for the next one.
+    let pending = [];
     for (const message of request.messages) {
-      if (message.role !== "system") messages.push(message);
-      else system.push(...asBlocks(message.content).filter((block) => block.type === "text"));
+      if (message.role === "system") {
+        const reminders = asBlocks(message.content)
+          .filter((block) => block.type === "text")
+          .map((block) => ({ type: "text", text: `<system-reminder>\n${block.text}\n</system-reminder>` }));
+        const last = messages.at(-1);
+        if (last?.role === "user") last.content = [...asBlocks(last.content), ...reminders];
+        else pending.push(...reminders);
+      } else if (message.role === "user" && pending.length > 0) {
+        messages.push({ ...message, content: [...pending, ...asBlocks(message.content)] });
+        pending = [];
+      } else {
+        messages.push(message);
+      }
     }
-    Object.assign(request, { system, messages });
+    if (pending.length > 0) messages.push({ role: "user", content: pending });
+    request.messages = messages;
     changed = true;
   }
 
