@@ -9,7 +9,8 @@
 //     ids the server actually serves.
 //   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
 //     models and WebSearch go to Anthropic with the claude.ai login; see
-//     cloudRequest.
+//     cloudRequest. Without it the shim answers WebSearch itself from Exa's
+//     search; see webSearchQuery.
 //
 // Usage: claude-local-shim.mjs <upstream-base-url> <command> [args...]
 import fs from "node:fs";
@@ -19,6 +20,8 @@ import os from "node:os";
 import { spawn } from "node:child_process";
 
 const anthropic = new URL("https://api.anthropic.com");
+// Exa's hosted search answers without an API key, rate limited; Pi's web search uses it too.
+const exa = "https://mcp.exa.ai/mcp?tools=web_search_exa";
 
 const asBlocks = (content) =>
   typeof content === "string" ? [{ type: "text", text: content }] : (content ?? []);
@@ -85,6 +88,72 @@ export function cloudRequest(body, helper) {
   return null;
 }
 
+// The query of a WebSearch request, with its domain filters as site: terms, or
+// null for any other request. Claude Code sends WebSearch to the main model as
+// "Perform a web search for the query: ..." with Anthropic's server-side
+// web_search tool, which a local server cannot run.
+export function webSearchQuery(body) {
+  const request = JSON.parse(body);
+  const tool = request.tools?.find((tool) => String(tool.type).startsWith("web_search"));
+  if (!tool) return null;
+  const text = asBlocks(request.messages?.[0]?.content).find((block) => block.type === "text")?.text ?? "";
+  return [
+    text.replace("Perform a web search for the query: ", ""),
+    ...(tool.allowed_domains ?? []).map((domain) => `site:${domain}`),
+    ...(tool.blocked_domains ?? []).map((domain) => `-site:${domain}`),
+  ].join(" ");
+}
+
+// Exa's results as text: title, URL, date and highlights for each page, each
+// page cut to 1,200 characters to keep a search near 2.5k tokens of context.
+async function searchExa(query) {
+  try {
+    const response = await fetch(exa, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "web_search_exa", arguments: { query, numResults: 8 } },
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = await response.text();
+    if (!response.ok) return `Web search failed: Exa answered HTTP ${response.status}: ${body.slice(0, 300)}`;
+    const data = body.split("\n").find((line) => line.startsWith("data:"));
+    const { result, error } = JSON.parse(data ? data.slice(5) : body);
+    const text = result?.content?.find((block) => block.type === "text")?.text;
+    if (!text) return `Web search failed: ${error?.message ?? "Exa returned no results"}`;
+    return text
+      .split(/\n(?=Title: )/)
+      .map((page) => page.slice(0, 1200))
+      .join("\n");
+  } catch (error) {
+    return `Web search failed: ${error.message}`;
+  }
+}
+
+// An Anthropic message holding only `text`, as server-sent events when the
+// request streams.
+export function textMessage(request, text) {
+  const message = { id: "msg_claude_local", type: "message", role: "assistant", model: request.model, content: [] };
+  const usage = { input_tokens: 0, output_tokens: 0 };
+  if (!request.stream) {
+    const done = { ...message, content: [{ type: "text", text }], stop_reason: "end_turn", usage };
+    return { type: "application/json", body: JSON.stringify(done) };
+  }
+  const events = [
+    { type: "message_start", message: { ...message, stop_reason: null, usage } },
+    { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+    { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
+    { type: "content_block_stop", index: 0 },
+    { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 0 } },
+    { type: "message_stop" },
+  ];
+  return { type: "text/event-stream", body: events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join("") };
+}
+
 export const failureLog = `${os.tmpdir()}/claude-local-error.json`;
 
 function saveFailure(request, response) {
@@ -111,12 +180,19 @@ function start(upstream, command) {
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
-    req.on("end", () => {
+    req.on("end", async () => {
       let body = Buffer.concat(chunks);
       let target = upstream;
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         try {
           const cloud = cloudRequest(body.toString(), helper);
+          const query = cloud || req.url.split("?")[0] !== "/v1/messages" ? null : webSearchQuery(body.toString());
+          if (query !== null) {
+            const reply = textMessage(JSON.parse(body), await searchExa(query));
+            res.writeHead(200, { "content-type": reply.type });
+            res.end(reply.body);
+            return;
+          }
           if (cloud) target = anthropic;
           body = Buffer.from(cloud ?? rewriteRequest(body.toString(), models));
         } catch {} // Not JSON we understand: forward it as received.

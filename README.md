@@ -75,10 +75,12 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch 
 ```
 
 - Without `LOCAL_HELPER_MODEL` everything runs on the local model, including
-  Claude Code's Haiku role (titles, summaries, reading fetched pages), and
-  WebSearch is removed: Claude Code sends its search to the main model as
-  Anthropic's server-side `web_search` tool, which a local server cannot run, so
-  it only ever returned no results.
+  Claude Code's Haiku role (titles, summaries, reading fetched pages). Claude
+  Code sends WebSearch to the main model as Anthropic's server-side `web_search`
+  tool, which a local server cannot run, so the shim answers it from Exa's
+  hosted search (no key, rate limited, as Pi's web search): 8 results with
+  highlights, each cut to 1,200 characters. WebFetch needs no Claude usage
+  either: its domain check sends only the domain name.
 - With `LOCAL_HELPER_MODEL` set to a Claude model, that model takes the Haiku
   role and WebSearch over the claude.ai login (it uses Claude usage and needs
   the internet). The main model, subagents and auto mode's checks stay local.
@@ -111,7 +113,8 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch 
   top-level `system` field. Strict chat templates (Qwen and friends) reject a
   non-leading system message with HTTP 500, which Claude Code retries silently
   until the session looks hung. With a helper model it sends requests for
-  Claude models, and WebSearch, to `api.anthropic.com` instead.
+  Claude models, and WebSearch, to `api.anthropic.com` instead; without one it
+  answers WebSearch from Exa.
 
 ## Atlassian MCP auth and read-only setup
 

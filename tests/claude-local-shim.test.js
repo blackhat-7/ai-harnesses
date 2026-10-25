@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { cloudRequest, forwardHeaders, rewriteRequest } = require("../scripts/claude-local-shim.mjs");
+const { cloudRequest, forwardHeaders, rewriteRequest, textMessage, webSearchQuery } = require("../scripts/claude-local-shim.mjs");
 
 test("trailing system messages move into the system field", () => {
   const request = {
@@ -92,6 +92,34 @@ test("without a helper model, everything stays local", () => {
 
   assert.equal(cloudRequest(haiku, ""), null);
   assert.equal(cloudRequest(search, undefined), null);
+});
+
+test("a WebSearch request gives its query with domain filters as site: terms", () => {
+  const search = JSON.stringify({
+    model: "Flash-Next",
+    tools: [{ type: "web_search_20250305", name: "web_search", allowed_domains: ["github.com"], blocked_domains: ["reddit.com"] }],
+    messages: [{ role: "user", content: [{ type: "text", text: "Perform a web search for the query: llama.cpp release" }] }],
+  });
+  const turn = JSON.stringify({ model: "Flash-Next", tools: [{ name: "Bash" }], messages: [{ role: "user", content: "hi" }] });
+
+  assert.equal(webSearchQuery(search), "llama.cpp release site:github.com -site:reddit.com");
+  assert.equal(webSearchQuery(turn), null);
+});
+
+test("a text reply is an Anthropic message, streamed as events when asked", () => {
+  const plain = JSON.parse(textMessage({ model: "m" }, "results").body);
+  const events = textMessage({ model: "m", stream: true }, "results")
+    .body.trim()
+    .split("\n\n")
+    .map((event) => JSON.parse(event.split("\ndata: ")[1]));
+
+  assert.deepEqual(plain.content, [{ type: "text", text: "results" }]);
+  assert.equal(plain.stop_reason, "end_turn");
+  assert.deepEqual(
+    events.map((event) => event.type),
+    ["message_start", "content_block_start", "content_block_delta", "content_block_stop", "message_delta", "message_stop"],
+  );
+  assert.equal(events[2].delta.text, "results");
 });
 
 test("credentials go to Anthropic", () => {

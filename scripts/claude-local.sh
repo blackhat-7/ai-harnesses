@@ -14,8 +14,7 @@ base="${LOCAL_MODEL_BASE_URL:-@defaultBaseUrl@}"
 base="${base%/}"
 # A Claude model here takes Claude Code's Haiku role (titles, summaries, reading
 # fetched pages) and WebSearch over the claude.ai login. Without one the local
-# model does everything, and WebSearch is removed: its search runs on Anthropic's
-# servers, so a local server only ever returned no results.
+# model does everything and the shim answers WebSearch from Exa's free search.
 helper="${LOCAL_HELPER_MODEL:-}"
 
 if ! command -v claude > /dev/null; then
@@ -99,7 +98,6 @@ else
     fi
   done
 fi
-[ -n "$helper" ] || args=(--disallowedTools WebSearch "${args[@]}")
 
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
 exec node "@shim@" "$base" claude "${args[@]}"
