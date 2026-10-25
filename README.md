@@ -94,11 +94,11 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch 
   (`http://pc:6868`); `LOCAL_MODEL_BASE_URL` overrides it per run.
 - The served context window (`meta.n_ctx`) becomes `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
   otherwise Claude Code assumes 200k for models it does not know.
-- Local sessions load only the Slack and Gmail claude.ai connectors (an
-  `allowedMcpServers` setting). Tool definitions are resent in full on every
-  request: 847 MCP tools measured here cost ~695k prompt tokens against a 131k
-  window, while the 27 built-in tools cost ~20k. Pass `--mcp-config <file>` to
-  load chosen servers instead.
+- Local sessions load only the Slack and Gmail claude.ai connectors and the
+  servers given with `--mcp-config` (an `allowedMcpServers` setting; Paseo passes
+  its plugins' servers that way). Tool definitions are resent in full on every
+  request: 1,114 MCP tools measured here cost ~929k prompt tokens against a 262k
+  window, while the 28 built-in tools cost ~20k.
   Claude Code keeps only the last `--settings`, so the wrapper merges the
   allowlist into any `--settings` it is given (the Agent SDK, e.g. Paseo,
   passes one). Tool search is off: a local server cannot expand tool references.

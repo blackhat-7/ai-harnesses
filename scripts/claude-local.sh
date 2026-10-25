@@ -76,28 +76,30 @@ export ENABLE_TOOL_SEARCH=false
 export MCP_CONNECTION_NONBLOCKING=0
 
 # MCP tool definitions are sent in full on every request and easily outweigh a
-# local context window (874 tools measured at ~695k tokens here), so local
-# sessions load only the Slack and Gmail claude.ai connectors. Pass --mcp-config
-# to choose servers explicitly.
-allow='{"allowedMcpServers":[{"serverUrl":"https://mcp.slack.com/*"},{"serverUrl":"https://gmailmcp.googleapis.com/*"}]}'
-if [[ " $* " == *" --mcp-config "* ]]; then
-  args=("$@")
-else
-  # Claude Code keeps only the last --settings, and the Agent SDK (Paseo) passes
-  # its own, so merge the allowlist into any given one.
-  args=(--settings "$allow")
-  while [ $# -gt 0 ]; do
-    if [ "$1" = --settings ] && [ $# -gt 1 ]; then
-      given=$2
-      [ -f "$given" ] && given=$(< "$given")
-      args+=(--settings "$(jq -c --argjson allow "$allow" '. + $allow' <<< "$given")")
-      shift 2
-    else
-      args+=("$1")
-      shift
-    fi
-  done
-fi
+# local context window (1,114 tools measured at ~929k tokens here), so local
+# sessions load only the Slack and Gmail claude.ai connectors and the servers
+# given with --mcp-config (Paseo passes its plugins' servers that way).
+allow='[{"serverUrl":"https://mcp.slack.com/*"},{"serverUrl":"https://gmailmcp.googleapis.com/*"}]'
+# Claude Code keeps only the last --settings, and the Agent SDK (Paseo) passes
+# its own, so merge the allowlist into it.
+settings='{}'
+args=()
+while [ $# -gt 0 ]; do
+  if [ "$1" = --settings ] && [ $# -gt 1 ]; then
+    settings=$2
+    [ -f "$settings" ] && settings=$(< "$settings")
+    shift 2
+    continue
+  fi
+  if [ "$1" = --mcp-config ] && [ $# -gt 1 ]; then
+    config=$2
+    [ -f "$config" ] && config=$(< "$config")
+    allow=$(jq -c --argjson config "$config" '. + ($config.mcpServers // {} | keys | map({serverName: .}))' <<< "$allow")
+  fi
+  args+=("$1")
+  shift
+done
+args=(--settings "$(jq -c --argjson allow "$allow" '. + {allowedMcpServers: $allow}' <<< "$settings")" "${args[@]}")
 
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
 exec node "@shim@" "$base" claude "${args[@]}"
