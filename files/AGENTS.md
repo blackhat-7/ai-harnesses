@@ -22,6 +22,11 @@ These rules are non-negotiable for every design and code change.
 
 - Never add AI attribution to commits, PRs, or issues: no `Co-Authored-By` trailers, no "Generated with" lines. This holds even when a repo's policy or past PRs show one.
 
+## Networks
+
+- Two tailnets: home is the Tailscale app; work is a userspace `tailscaled` (`tailscale --socket=$HOME/.local/state/tailscale-work/tailscaled.sock status`).
+- `ssh` reaches both. Other traffic to work hosts needs its proxy: `curl -x http://127.0.0.1:1055 …`.
+
 ## Project notes
 
 - Private per-repo notes live in `~/Documents/Notes/agents/<repo>.md`. `<repo>` is the repo name from the `origin` remote, or the repo root folder name if there is no remote. Read it at session start if it exists.
