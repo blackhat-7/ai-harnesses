@@ -115,16 +115,16 @@ let
         CRG_ACCEPT_CLOUD_EMBEDDINGS = "1";
       };
     };
-    # Drives a running Zen/Firefox, keeping its logins. Start the browser with
-    # `--marionette --remote-debugging-port` first.
+    # Launches its own Zen window next to the everyday one, with a persistent
+    # profile in ~/.firefox-devtools-mcp (log in there once).
     firefox-devtools = {
       command = "npx";
       args = [
         "-y"
         "@mozilla/firefox-devtools-mcp@latest"
-        "--connect-existing"
-        "--marionette-port"
-        "2828"
+        "--firefox-path"
+        (if pkgs.stdenv.hostPlatform.isDarwin then "/Applications/Zen.app/Contents/MacOS/zen" else "/usr/bin/zen")
+        "--auto-profile"
       ];
     };
     aftershoot-mcp = {
