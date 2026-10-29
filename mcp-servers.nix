@@ -115,11 +115,16 @@ let
         CRG_ACCEPT_CLOUD_EMBEDDINGS = "1";
       };
     };
-    chrome-devtools = {
+    # Drives a running Zen/Firefox, keeping its logins. Start the browser with
+    # `--marionette --remote-debugging-port` first.
+    firefox-devtools = {
       command = "npx";
       args = [
         "-y"
-        "chrome-devtools-mcp@latest"
+        "@mozilla/firefox-devtools-mcp@latest"
+        "--connect-existing"
+        "--marionette-port"
+        "2828"
       ];
     };
     aftershoot-mcp = {
