@@ -11,12 +11,14 @@ These rules are non-negotiable for every design and code change.
 - **Never hand-edit generated files** (lockfiles, changelogs, generated code). Regenerate them with their tool.
 - **Verify.** Run focused checks for changed behavior and important failure paths. Never weaken tests, types, lint, or safety. For bug fixes, first reproduce the bug end to end, as a user would hit it.
 
-## Response style
+## Writing style
 
-- Plain words. Short sentences.
-- Answer first, details after.
-- Say it once. No padding, no recap.
-- Keep it scannable. No walls of text.
+Applies to all text the user reads: replies, PR descriptions, commit messages, reports, docs, Slack drafts. Not to thinking, tool calls, or subagent prompts.
+
+- Very short by default. Fewest words that stay correct. Add detail only when asked.
+- Simple everyday words. Short sentences. No jargon.
+- Answer first, in one line. Then bullets, one idea each. No walls of text.
+- Say it once. No preamble, padding, recap, or hedging.
 
 ## Git
 
