@@ -122,10 +122,22 @@ let
       args = [
         "-y"
         "@mozilla/firefox-devtools-mcp@latest"
-        "--firefox-path"
-        (if pkgs.stdenv.hostPlatform.isDarwin then "/Applications/Zen.app/Contents/MacOS/zen" else "/usr/bin/zen")
         "--auto-profile"
-      ];
+        "--firefox-path"
+      ]
+      ++ (
+        if pkgs.stdenv.hostPlatform.isDarwin then
+          [
+            "/Applications/Zen.app/Contents/MacOS/zen"
+            # Reach work-tailnet hosts like Zen's Work profile (work.pac comes from dotfiles).
+            "--pref"
+            "network.proxy.type=2"
+            "--pref"
+            "network.proxy.autoconfig_url=file://${config.home.homeDirectory}/.config/tailscale/work.pac"
+          ]
+        else
+          [ "/usr/bin/zen" ]
+      );
     };
     aftershoot-mcp = {
       type = "http";
