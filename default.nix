@@ -7,6 +7,7 @@
     ./opencode.nix
     ./mcp.nix
     ./peekaboo.nix
+    ./chats-backup.nix
   ];
 
   config.home.file = lib.mkMerge [
