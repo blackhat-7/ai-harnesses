@@ -76,7 +76,7 @@ export function classifierOptions<T extends object>(context: { tools?: { name: s
 
 export default async function (pi: ExtensionAPI) {
   // `pi --local`: the session and the side roles run on the local servers. Side roles
-  // (titles, memory reviews) name local-side first and fall back to cloud Haiku, so
+  // (titles) name local-side first and fall back to cloud Haiku, so
   // the side provider is registered only in local mode.
   pi.registerFlag("local", { description: "Use the local main and side models", type: "boolean" });
 

@@ -85,7 +85,6 @@ let
       "npm:pi-session-move"
       "npm:pi-bar"
       "npm:pi-claude-style-tools"
-      "npm:pi-hermes-memory"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
       "npm:pi-claude-bridge"
@@ -223,10 +222,6 @@ let
     ctx_glob = "allow";
     ctx_search = "allow";
     ctx_callgraph = "allow";
-    memory = "allow";
-    memory_add = "allow";
-    memory_search = "allow";
-    session_search = "allow";
     todo = "allow";
     structured_output = "allow";
     subagent = "allow";
@@ -269,13 +264,6 @@ let
     "local-side/side"
     "claude-bridge/claude-haiku-4-5"
   ];
-  piHermesMemoryConfig = {
-    childExtensionPaths = [ "npm:pi-claude-bridge" ];
-    reviewRecentMessages = 30;
-    # No llmModelOverride: its subprocess fallback passes the first entry verbatim to
-    # a child pi that lacks local-side, so a chain starting with it breaks cloud
-    # sessions. Reviews follow the session model instead.
-  };
   piAutonameConfig = {
     enabled = true;
     model = builtins.head sideModels;
@@ -302,8 +290,6 @@ let
     excludeTools = [
       "mcp__code_review_graph"
       "skill_manage"
-      "memory_*"
-      "session_search"
       "AskClaude"
       "session_move"
       "subagent"
@@ -342,9 +328,6 @@ let
   '';
   writePiClaudeBridgeConfig = lib.optionalString (piPackageEnabled "npm:pi-claude-bridge") ''
     ${helpers.writeJson "$HOME/.pi/agent/claude-bridge.json" piClaudeBridgeConfig}
-  '';
-  writePiHermesMemoryConfig = lib.optionalString (piPackageEnabled "npm:pi-hermes-memory") ''
-    ${helpers.writeJson "$HOME/.pi/agent/hermes-memory-config.json" piHermesMemoryConfig}
   '';
   writePiPermissionSystemConfig = lib.optionalString piPermissionSystemEnabled ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-permission-system/config.json" piPermissionSystemConfig}
@@ -433,7 +416,6 @@ in
     ${writePiPermissionSystemConfig}
     ${writePiLeanCtxConfig}
     ${writePiClaudeBridgeConfig}
-    ${writePiHermesMemoryConfig}
     ${writePiAutomodeConfig}
     ${helpers.writeJson "$HOME/.pi/agent/subagents.json" piSubagentsSettings}
     ${helpers.writeJson "$HOME/.pi/agent/lean.json" piLeanConfig}
