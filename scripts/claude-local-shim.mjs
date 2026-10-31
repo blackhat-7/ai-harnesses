@@ -12,9 +12,9 @@
 //   - Model names come back from the display names in CLAUDE_LOCAL_MODELS to the
 //     ids the server actually serves.
 //   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
-//     models and WebSearch go to Anthropic with the claude.ai login; see
-//     cloudRequest. Without it the shim answers WebSearch itself from Exa's
-//     search; see webSearchQuery.
+//     models, WebSearch and auto mode's safety checks go to Anthropic with the
+//     claude.ai login; see cloudRequest. Without it the shim answers WebSearch
+//     itself from Exa's search; see webSearchQuery.
 //
 // Usage: claude-local-shim.mjs <upstream-base-url> <command> [args...]
 import fs from "node:fs";
@@ -91,18 +91,23 @@ export function rewriteRequest(body, models = {}) {
   return changed ? JSON.stringify(request) : body;
 }
 
+// Auto mode's safety check of each tool call names the main model but has its own
+// system prompt, which starts with this sentence.
+const safetyCheck = "You are a security monitor for autonomous AI coding agents.";
+
 // The body to send to Anthropic instead of the local server, or null. Only with a
-// helper model: Claude Code's Haiku role then names a Claude model, and WebSearch,
-// which it sends to the main model with Anthropic's server-side search tool,
-// moves to the helper, because a local server cannot run that tool.
+// helper model: Claude Code's Haiku role then names a Claude model, and two kinds
+// of request it sends to the main model move to the helper. WebSearch carries
+// Anthropic's server-side search tool, which a local server cannot run. Safety
+// checks took a fifth to a third of the local model's busy time, ahead of the
+// actions they hold up.
 export function cloudRequest(body, helper) {
   if (!helper) return null;
   const request = JSON.parse(body);
   if (String(request.model).startsWith("claude-")) return body;
-  if (request.tools?.some((tool) => String(tool.type).startsWith("web_search"))) {
-    return JSON.stringify({ ...request, model: helper });
-  }
-  return null;
+  const search = request.tools?.some((tool) => String(tool.type).startsWith("web_search"));
+  const check = asBlocks(request.system).some((block) => block.text?.startsWith(safetyCheck));
+  return search || check ? JSON.stringify({ ...request, model: helper }) : null;
 }
 
 // The query of a WebSearch request, with its domain filters as site: terms, or

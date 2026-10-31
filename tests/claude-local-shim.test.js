@@ -100,14 +100,32 @@ test("unknown models and plain requests are forwarded byte for byte", () => {
   assert.equal(rewriteRequest(body, { "Qwen-Q4_K_M": "/models/Qwen-Q4_K_M.gguf" }), body);
 });
 
-test("with a helper model, Claude models and WebSearch go to Anthropic", () => {
+// Auto mode's safety check as Claude Code 2.1.312 sends it: the main model's name, its own system prompt.
+const safetyCheck = {
+  model: "Flash-Next",
+  system: [{ type: "text", text: "You are a security monitor for autonomous AI coding agents.\n\n## Context\n..." }],
+  messages: [{ role: "user", content: [{ type: "text", text: "<transcript>\n" }] }],
+  stop_sequences: ["</block>"],
+};
+
+test("with a helper model, Claude models, WebSearch and safety checks go to Anthropic", () => {
   const haiku = JSON.stringify({ model: "claude-haiku-5-5", messages: [{ role: "user", content: "title?" }] });
   const search = { model: "Flash-Next", tools: [{ type: "web_search_20250305", name: "web_search" }], messages: [] };
   const local = JSON.stringify({ model: "Flash-Next", tools: [{ name: "Bash" }], messages: [] });
 
   assert.equal(cloudRequest(haiku, "claude-haiku-5-5"), haiku);
   assert.deepEqual(JSON.parse(cloudRequest(JSON.stringify(search), "claude-haiku-5-5")), { ...search, model: "claude-haiku-5-5" });
+  assert.deepEqual(JSON.parse(cloudRequest(JSON.stringify(safetyCheck), "claude-haiku-5-5")), {
+    ...safetyCheck,
+    model: "claude-haiku-5-5",
+  });
   assert.equal(cloudRequest(local, "claude-haiku-5-5"), null);
+});
+
+test("a turn that only quotes the safety check's prompt stays local", () => {
+  const quoted = { model: "Flash-Next", system: "You are Claude Code.", messages: [{ role: "user", content: safetyCheck.system }] };
+
+  assert.equal(cloudRequest(JSON.stringify(quoted), "claude-haiku-5-5"), null);
 });
 
 test("without a helper model, everything stays local", () => {
@@ -116,6 +134,7 @@ test("without a helper model, everything stays local", () => {
 
   assert.equal(cloudRequest(haiku, ""), null);
   assert.equal(cloudRequest(search, undefined), null);
+  assert.equal(cloudRequest(JSON.stringify(safetyCheck), ""), null);
 });
 
 test("a WebSearch request gives its query with domain filters as site: terms", () => {

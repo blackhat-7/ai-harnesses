@@ -7,14 +7,15 @@
 #   LOCAL_MODEL=qwen claude-local # first model whose name contains "qwen"
 #   /model <name>                 # switch in-session
 #   LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local
-#                                 # helper calls and WebSearch on Claude (needs usage)
+#                                 # helper calls, WebSearch and safety checks on Claude (needs usage)
 set -euo pipefail
 
 base="${LOCAL_MODEL_BASE_URL:-@defaultBaseUrl@}"
 base="${base%/}"
 # A Claude model here takes Claude Code's Haiku role (titles, summaries, reading
-# fetched pages) and WebSearch over the claude.ai login. Without one the local
-# model does everything and the shim answers WebSearch from Exa's free search.
+# fetched pages), WebSearch and auto mode's safety checks over the claude.ai
+# login. Without one the local model does everything and the shim answers
+# WebSearch from Exa's free search.
 helper="${LOCAL_HELPER_MODEL:-}"
 
 if ! command -v claude > /dev/null; then

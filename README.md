@@ -71,7 +71,7 @@ Plain `claude` is untouched and keeps its Anthropic login.
 claude-local                     # first model the server lists
 LOCAL_MODEL=qwen claude-local    # first model id containing "qwen"
 claude-local -p 'hello'          # all other arguments go to claude
-LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch on Claude
+LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls, WebSearch and safety checks on Claude
 ```
 
 - Without `LOCAL_HELPER_MODEL` everything runs on the local model, including
@@ -82,8 +82,10 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch 
   highlights, each cut to 1,200 characters. WebFetch needs no Claude usage
   either: its domain check sends only the domain name.
 - With `LOCAL_HELPER_MODEL` set to a Claude model, that model takes the Haiku
-  role and WebSearch over the claude.ai login (it uses Claude usage and needs
-  the internet). The main model, subagents and auto mode's checks stay local.
+  role, WebSearch and auto mode's safety checks over the claude.ai login (it
+  uses Claude usage and needs the internet). The checks judge every tool call
+  and took a fifth to a third of the local model's busy time. The main model and
+  subagents stay local.
 
 - Models are discovered from `GET /v1/models` at startup, never pinned. Each one
   is named after its file (`Qwen3.8-27B-Uncensored-Q4_K_M`), because llama.cpp
@@ -117,8 +119,8 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls and WebSearch 
   until the session looks hung. Moving them into the top-level `system` instead
   changes the start of the prompt with every update, and the server re-reads the
   whole conversation (76K tokens, 28 s, measured). With a helper model it sends requests for
-  Claude models, and WebSearch, to `api.anthropic.com` instead; without one it
-  answers WebSearch from Exa.
+  Claude models, WebSearch and safety checks (recognised by their system prompt)
+  to `api.anthropic.com` instead; without one it answers WebSearch from Exa.
 
 ## Atlassian MCP auth and read-only setup
 
