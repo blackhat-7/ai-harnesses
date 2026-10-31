@@ -11,6 +11,9 @@
 //     every update, and the server re-read the whole conversation.
 //   - Model names come back from the display names in CLAUDE_LOCAL_MODELS to the
 //     ids the server actually serves.
+//   - The text of the file named by CLAUDE_LOCAL_NOTES, which describes this server's
+//     limits, goes last in `system` on every agent turn: the main agent's and each
+//     subagent's. A flag such as --append-system-prompt reaches only the main agent.
 //   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
 //     models, WebSearch and auto mode's safety checks go to Anthropic with the
 //     claude.ai login; see cloudRequest. Without it the shim answers WebSearch
@@ -49,11 +52,20 @@ function dropRefProperties(node) {
   return Object.values(node).reduce((found, value) => dropRefProperties(value) || found, dropped);
 }
 
-export function rewriteRequest(body, models = {}) {
+export function rewriteRequest(body, models = {}, notes = "") {
   const request = JSON.parse(body);
   let changed = false;
 
   if (Array.isArray(request.tools) && dropRefProperties(request.tools)) {
+    changed = true;
+  }
+
+  // The notes advise on using tools (subagents, reads), so only requests that carry
+  // tools get them: the main agent's and its subagents'. Safety checks and WebSearch
+  // have fixed prompts of their own, and helper calls (titles, summaries) have no tools.
+  // The same block goes last on every turn, so the server still reuses its cached prompt.
+  if (notes && request.tools?.length > 0 && !webSearchTool(request) && !isSafetyCheck(request)) {
+    request.system = [...asBlocks(request.system), { type: "text", text: notes }];
     changed = true;
   }
 
@@ -94,6 +106,10 @@ export function rewriteRequest(body, models = {}) {
 // Auto mode's safety check of each tool call names the main model but has its own
 // system prompt, which starts with this sentence.
 const safetyCheck = "You are a security monitor for autonomous AI coding agents.";
+const isSafetyCheck = (request) => asBlocks(request.system).some((block) => block.text?.startsWith(safetyCheck));
+
+// The server-side search tool a WebSearch request carries, or undefined.
+const webSearchTool = (request) => request.tools?.find((tool) => String(tool.type).startsWith("web_search"));
 
 // The body to send to Anthropic instead of the local server, or null. Only with a
 // helper model: Claude Code's Haiku role then names a Claude model, and two kinds
@@ -105,9 +121,7 @@ export function cloudRequest(body, helper) {
   if (!helper) return null;
   const request = JSON.parse(body);
   if (String(request.model).startsWith("claude-")) return body;
-  const search = request.tools?.some((tool) => String(tool.type).startsWith("web_search"));
-  const check = asBlocks(request.system).some((block) => block.text?.startsWith(safetyCheck));
-  return search || check ? JSON.stringify({ ...request, model: helper }) : null;
+  return webSearchTool(request) || isSafetyCheck(request) ? JSON.stringify({ ...request, model: helper }) : null;
 }
 
 // The query of a WebSearch request, with its domain filters as site: terms, or
@@ -116,7 +130,7 @@ export function cloudRequest(body, helper) {
 // web_search tool, which a local server cannot run.
 export function webSearchQuery(body) {
   const request = JSON.parse(body);
-  const tool = request.tools?.find((tool) => String(tool.type).startsWith("web_search"));
+  const tool = webSearchTool(request);
   if (!tool) return null;
   const text = asBlocks(request.messages?.[0]?.content).find((block) => block.type === "text")?.text ?? "";
   return [
@@ -199,6 +213,8 @@ export function forwardHeaders(headers, target, body) {
 function start(upstream, command) {
   const models = JSON.parse(process.env.CLAUDE_LOCAL_MODELS ?? "{}");
   const helper = process.env.CLAUDE_LOCAL_HELPER_MODEL;
+  const notesFile = process.env.CLAUDE_LOCAL_NOTES;
+  const notes = notesFile ? fs.readFileSync(notesFile, "utf8").trim() : "";
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (chunk) => chunks.push(chunk));
@@ -216,7 +232,7 @@ function start(upstream, command) {
             return;
           }
           if (cloud) target = anthropic;
-          body = Buffer.from(cloud ?? rewriteRequest(body.toString(), models));
+          body = Buffer.from(cloud ?? rewriteRequest(body.toString(), models, notes));
         } catch {} // Not JSON we understand: forward it as received.
       }
       const forwarded = (target.protocol === "https:" ? https : http).request(

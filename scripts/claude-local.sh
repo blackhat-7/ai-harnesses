@@ -66,6 +66,8 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="${helper:-$model}"
 export CLAUDE_LOCAL_HELPER_MODEL="$helper"
+# The shim adds this file's text to the system prompt of every agent turn.
+export CLAUDE_LOCAL_NOTES="@notes@"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # A local server cannot run auto mode's server-side safety checks, so stop
 # Claude Code asking for them and holding the first action behind a notice.

@@ -137,6 +137,50 @@ test("without a helper model, everything stays local", () => {
   assert.equal(cloudRequest(JSON.stringify(safetyCheck), ""), null);
 });
 
+// The notes' wording is the user's to change, so these tests only look at where the block lands.
+const notes = "# Local model server\n- Keep reports short.";
+const notesBlock = { type: "text", text: notes };
+// A main agent or subagent turn: a system prompt and tools.
+const agentTurn = {
+  model: "Flash-Next",
+  system: [{ type: "text", text: "You are Claude Code." }],
+  tools: [{ name: "Bash", input_schema: { type: "object" } }],
+  messages: [{ role: "user", content: "hi" }],
+};
+const withNotes = (request) => JSON.parse(rewriteRequest(JSON.stringify(request), {}, notes));
+
+test("agent turns get the notes as the last text block of system, the same on every turn", () => {
+  const later = { ...agentTurn, messages: [...agentTurn.messages, { role: "assistant", content: "hello" }, { role: "user", content: "more" }] };
+
+  assert.deepEqual(withNotes(agentTurn).system, [...agentTurn.system, notesBlock]);
+  assert.deepEqual(withNotes({ ...agentTurn, system: "You are a subagent." }).system, [{ type: "text", text: "You are a subagent." }, notesBlock]);
+  assert.deepEqual(withNotes(later).system, withNotes(agentTurn).system);
+});
+
+test("safety checks, WebSearch and helper calls without tools do not get the notes", () => {
+  const check = { ...safetyCheck, tools: agentTurn.tools };
+  const search = {
+    model: "Flash-Next",
+    system: [{ type: "text", text: "You are an assistant for performing a web search tool use" }],
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    messages: agentTurn.messages,
+  };
+  const title = { model: "Flash-Next", system: [{ type: "text", text: "Write a title." }], messages: agentTurn.messages };
+
+  assert.equal(withNotes(agentTurn).system.at(-1).text, notes);
+  for (const request of [check, search, title, { ...title, tools: [] }]) {
+    assert.deepEqual(withNotes(request).system, request.system);
+  }
+});
+
+test("with no notes, an agent turn is forwarded byte for byte", () => {
+  const body = JSON.stringify(agentTurn);
+
+  assert.equal(rewriteRequest(body, {}, ""), body);
+  assert.equal(rewriteRequest(body), body);
+  assert.notEqual(rewriteRequest(body, {}, notes), body);
+});
+
 test("a WebSearch request gives its query with domain filters as site: terms", () => {
   const search = JSON.stringify({
     model: "Flash-Next",

@@ -109,9 +109,18 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls, WebSearch and
   never to the model server.
 - Claude Code hides server errors behind silent retries, so the shim writes the
   request and error of any rejected call to `$TMPDIR/claude-local-error.json`.
-- `scripts/claude-local-shim.mjs` is a local proxy that rewrites two things on the
+- `files/claude-local-notes.md` tells the model the server's limits: it
+  answers one request at a time and caches few long chats, so the model should
+  run few subagents, prefer fresh ones over forks, ask for short reports and read
+  only what it needs. The shim adds the file as the last text block of `system`
+  on every agent turn (the main agent's and each subagent's: requests that carry
+  tools, not safety checks, WebSearch or helper calls). It does this for every
+  way of starting the session, including Paseo through the Agent SDK. The wrapper
+  passes the file as `CLAUDE_LOCAL_NOTES`. The block is the same on every turn,
+  so the server still reuses its cached prompt. Plain `claude` is untouched.
+- `scripts/claude-local-shim.mjs` is a local proxy that rewrites three things on the
   way out: it maps display names back to server ids (from `CLAUDE_LOCAL_MODELS`),
-  and it turns the `role: "system"` messages Claude Code sends inside the
+  it adds the notes above, and it turns the `role: "system"` messages Claude Code sends inside the
   conversation (the environment block, then updates such as a changed working
   directory or a message queued while it works) into `<system-reminder>` text in
   the user turn where each stands. Strict chat templates (Qwen and friends) reject

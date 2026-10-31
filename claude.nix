@@ -21,9 +21,10 @@ let
       pkgs.gnugrep
       pkgs.nodejs
     ];
-    text = builtins.replaceStrings [ "@defaultBaseUrl@" "@shim@" ] [
+    text = builtins.replaceStrings [ "@defaultBaseUrl@" "@shim@" "@notes@" ] [
       config.aiHarnesses.claude.localModelBaseUrl
       "${./scripts/claude-local-shim.mjs}"
+      "${./files/claude-local-notes.md}"
     ] (builtins.readFile ./scripts/claude-local.sh);
   };
 
