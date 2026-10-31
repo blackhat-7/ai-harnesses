@@ -15,7 +15,8 @@ These rules are non-negotiable for every design and code change.
 
 Applies to all text the user reads: replies, PR descriptions, commit messages, reports, docs, Slack drafts. Not to thinking, tool calls, or subagent prompts.
 
-- Short by default: a few lines for questions, findings, and status. Go long only for plans, specs, and docs, or when asked. "Short" or "tldr" always wins.
+- Infer length yourself; the user should never have to ask for short. Default to 3–5 lines, under about 80 words. Go longer only for plans, specs, and docs, or when asked. "Short" or "tldr" always wins.
+- Give the likely answer and the top 2–3 points, not every case. If more matters, offer it in one line.
 - Keep what the user needs to decide or act: key numbers, risks, blockers, what wasn't verified. Cut the rest.
 - Simple everyday words. Short sentences. Shorter never means denser: no jargon, abbreviations, or packed phrases.
 - Answer first, in one line. Then bullets, one idea each. No walls of text.
