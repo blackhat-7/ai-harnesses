@@ -15,8 +15,9 @@ These rules are non-negotiable for every design and code change.
 
 Applies to all text the user reads: replies, PR descriptions, commit messages, reports, docs, Slack drafts. Not to thinking, tool calls, or subagent prompts.
 
-- Very short by default. Fewest words that stay correct. Add detail only when asked.
-- Simple everyday words. Short sentences. No jargon.
+- Short by default: a few lines for questions, findings, and status. Go long only for plans, specs, and docs, or when asked. "Short" or "tldr" always wins.
+- Keep what the user needs to decide or act: key numbers, risks, blockers, what wasn't verified. Cut the rest.
+- Simple everyday words. Short sentences. Shorter never means denser: no jargon, abbreviations, or packed phrases.
 - Answer first, in one line. Then bullets, one idea each. No walls of text.
 - Say it once. No preamble, padding, recap, or hedging.
 
