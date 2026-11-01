@@ -114,12 +114,31 @@ test("with a helper model, Claude models, WebSearch and safety checks go to Anth
   const local = JSON.stringify({ model: "Flash-Next", tools: [{ name: "Bash" }], messages: [] });
 
   assert.equal(cloudRequest(haiku, "claude-haiku-5-5"), haiku);
-  assert.deepEqual(JSON.parse(cloudRequest(JSON.stringify(search), "claude-haiku-5-5")), { ...search, model: "claude-haiku-5-5" });
+  assert.deepEqual(JSON.parse(cloudRequest(JSON.stringify(search), "claude-haiku-5-5")), {
+    ...search,
+    model: "claude-haiku-5-5",
+    output_config: { effort: "low" },
+  });
   assert.deepEqual(JSON.parse(cloudRequest(JSON.stringify(safetyCheck), "claude-haiku-5-5")), {
     ...safetyCheck,
     model: "claude-haiku-5-5",
   });
   assert.equal(cloudRequest(local, "claude-haiku-5-5"), null);
+});
+
+test("a search goes to the helper without the session's thinking, at low effort", () => {
+  const search = {
+    model: "Flash-Next",
+    thinking: { type: "adaptive" },
+    output_config: { effort: "max" },
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    messages: [],
+  };
+
+  const sent = JSON.parse(cloudRequest(JSON.stringify(search), "claude-haiku-5-5"));
+
+  assert.equal(sent.thinking, undefined);
+  assert.deepEqual(sent.output_config, { effort: "low" });
 });
 
 test("a turn that only quotes the safety check's prompt stays local", () => {

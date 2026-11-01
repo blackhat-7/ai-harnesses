@@ -121,7 +121,12 @@ export function cloudRequest(body, helper) {
   if (!helper) return null;
   const request = JSON.parse(body);
   if (String(request.model).startsWith("claude-")) return body;
-  return webSearchTool(request) || isSafetyCheck(request) ? JSON.stringify({ ...request, model: helper }) : null;
+  if (isSafetyCheck(request)) return JSON.stringify({ ...request, model: helper });
+  if (!webSearchTool(request)) return null;
+  // A search inherits the session's thinking and effort: at max effort the helper
+  // took 149 s for one search against 11 s at low, for the same links.
+  const { thinking, ...search } = request;
+  return JSON.stringify({ ...search, model: helper, output_config: { ...request.output_config, effort: "low" } });
 }
 
 // The query of a WebSearch request, with its domain filters as site: terms, or

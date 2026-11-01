@@ -84,7 +84,8 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls, WebSearch and
 - With `LOCAL_HELPER_MODEL` set to a Claude model, that model takes the Haiku
   role, WebSearch and auto mode's safety checks over the claude.ai login (it
   uses Claude usage and needs the internet). The checks judge every tool call
-  and took a fifth to a third of the local model's busy time. The main model and
+  and took a fifth to a third of the local model's busy time. Searches go without the session's
+  thinking, at low effort: at max effort one search took 149 s instead of 11. The main model and
   subagents stay local.
 
 - Models are discovered from `GET /v1/models` at startup, never pinned. Each one
