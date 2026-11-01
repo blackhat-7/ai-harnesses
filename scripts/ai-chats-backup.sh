@@ -33,6 +33,21 @@ copy claude ~/.claude projects history.jsonl
 copy pi ~/.pi/agent sessions
 copy codex ~/.codex sessions history.jsonl session_index.jsonl
 copy paseo ~/.paseo agents
+copy cursor ~/.cursor chats
+copy gemini ~/.gemini tmp
+copy vscode ~/.config/Code User/workspaceStorage
+copy copilot ~/.copilot command-history-state.json session-state
+
+# VS Code and the Copilot CLI keep their transcripts in a SQLite database. Dump
+# them to SQL instead of copying the database file: the redaction loop below
+# rewrites text in place, which would corrupt a database page.
+dump() {
+  [ -f "$2" ] || return 0
+  mkdir -p "$stage/$1"
+  sqlite3 -readonly "$2" .dump >"$stage/$1/transcripts.sql"
+}
+dump vscode ~/.config/Code/User/globalStorage/state.vscdb
+dump copilot ~/.copilot/session-store.db
 
 # `opencode session list` hides subagent and some older chats, so read the ids
 # from its database.
