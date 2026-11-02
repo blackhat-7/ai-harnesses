@@ -22,6 +22,15 @@ Applies to all text the user reads: replies, PR descriptions, commit messages, r
 - Answer first, in one line. Then bullets, one idea each. No walls of text.
 - Say it once. No preamble, padding, recap, or hedging.
 
+## Subagent models (Claude Code)
+
+Set the Agent tool's `model` by how easily you can catch the agent's mistakes:
+
+- `haiku`: read-only finding and lookups, including Explore.
+- `sonnet`: well-specified edits, running tests, web research, summaries.
+- `opus`: design, unknown root causes, reviews, anything you'll trust unchecked. When unsure, `opus`.
+- Ask cheaper agents for a short report, not file dumps. If a result looks thin or wrong, redo it one level up.
+
 ## Git
 
 - Never add AI attribution to commits, PRs, or issues: no `Co-Authored-By` trailers, no "Generated with" lines. This holds even when a repo's policy or past PRs show one.
