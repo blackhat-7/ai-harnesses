@@ -42,7 +42,7 @@ Set the Agent tool's `model` by how easily you can catch the agent's mistakes:
 
 ## Time-sensitive work
 
-When the user says it is urgent or gives a deadline: own it yourself (no unchecked subagents), pilot one item end to end first, and check real state hourly. Warn the user the moment anything blocks or the ETA slips. If they are away, resolve blockers yourself in the way that loses the least time, but never with anything that raises cost noticeably or is hard to undo.
+When the user says it is urgent or gives a deadline: own it yourself (no unchecked subagents), pilot one item end to end first, and check real state (not agent reports) as often as the job needs. Warn the user the moment anything blocks or the ETA slips. If they are away, resolve blockers yourself in the way that loses the least time, but never with anything that raises cost noticeably or is hard to undo.
 
 ## Notes
 
