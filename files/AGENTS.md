@@ -40,8 +40,13 @@ Set the Agent tool's `model` by how easily you can catch the agent's mistakes:
 - Two tailnets: home is the Tailscale app; work is a userspace `tailscaled` (`tailscale --socket=$HOME/.local/state/tailscale-work/tailscaled.sock status`).
 - `ssh` reaches both. Other traffic to work hosts needs its proxy: `curl -x http://127.0.0.1:1055 …`.
 
-## Project notes
+## Time-sensitive work
 
-- Private per-repo notes live in `~/Documents/Notes/agents/<repo>.md`. `<repo>` is the repo name from the `origin` remote, or the repo root folder name if there is no remote. Read it at session start if it exists.
-- When the user corrects a mistake or says "remember this", record the lesson there, not in a built-in memory tool. Create the file if missing. Don't commit it; the user syncs the Notes repo.
-- Keep only what nearly every future session in that repo needs. Don't repeat what the code shows; point to the file or command. Prune or rewrite entries instead of appending.
+When the user says it is urgent or gives a deadline: own it yourself (no unchecked subagents), run long jobs in the cloud, pilot one item end to end first, and check real state hourly. Warn the user the moment anything blocks or the ETA slips. If they are away, resolve blockers yourself in the way that loses the least time, but never with anything that raises cost noticeably or is hard to undo.
+
+## Notes
+
+- Repo notes: `~/Documents/Notes/agents/<repo>.md` (`<repo>` = `origin` repo name, else root folder name). How the repo works: conventions, commands, gotchas. Read at session start.
+- Project notes: `~/Documents/Notes/projects/<project>/README.md`: goal, current state, PRs across repos, decisions, next steps. `~/Documents/Notes/projects/INDEX.md` maps project names, aliases and tickets to folders. When the user mentions a project or ticket, look it up there and read its README.
+- Record corrections and "remember this" in the right file, not a built-in memory tool. Update project state at milestones and before a session ends, so a new session can resume. Don't commit; the user syncs the Notes repo.
+- Keep notes short and current: rewrite or prune instead of appending. Don't repeat what the code shows; point to the file or command.
