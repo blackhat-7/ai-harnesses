@@ -46,7 +46,7 @@ When the user says it is urgent or gives a deadline: own it yourself (no uncheck
 
 ## Notes
 
-- Repo notes: `~/Documents/Notes/agents/<repo>.md` (`<repo>` = `origin` repo name, else root folder name). How the repo works: conventions, commands, gotchas. Read at session start.
-- Project notes: `~/Documents/Notes/projects/<project>/README.md`: goal, current state, PRs across repos, decisions, next steps. `~/Documents/Notes/projects/INDEX.md` maps project names, aliases and tickets to folders. When the user mentions a project or ticket, look it up there and read its README.
-- Record corrections and "remember this" in the right file, not a built-in memory tool. Update project state at milestones and before a session ends, so a new session can resume. Don't commit; the user syncs the Notes repo.
-- Keep notes short and current: rewrite or prune instead of appending. Don't repeat what the code shows; point to the file or command.
+- Repo notes `~/Documents/Notes/agents/<repo>.md` (`origin` repo name, else root folder): conventions, commands, gotchas. Read at session start.
+- Project notes `~/Documents/Notes/projects/<project>/README.md`, found via `projects/INDEX.md` (names, aliases, tickets). Read when the user mentions one. Keep what a new session needs to resume: goal, current state, open PRs and their order, decisions with a one-line why, blockers, next steps. Keys, paths and commands, not narration.
+- Update at milestones and before the session ends. Replace stale state and drop finished items. History worth keeping goes in `log.md`, one line per event.
+- Record corrections and "remember this" in the matching file, not a built-in memory tool. Don't repeat what the code or git shows. Don't commit; the user syncs Notes.
