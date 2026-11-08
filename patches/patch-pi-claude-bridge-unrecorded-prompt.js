@@ -79,13 +79,15 @@ const indexEdits = [
     ].join("\n"),
   },
   {
+    // Placed after upstream's own `thinking` spread (0.11.0) so it wins: upstream only
+    // disables thinking when pi sends no reasoning level.
     oldText: [
-      "\t\t\t...(effort ? { effort } : {}),",
+      "\t\t\t...(thinking ? { thinking } : {}),",
       "\t\t\t...(mcpServers ? { mcpServers } : {}),",
       "",
     ].join("\n"),
     newText: [
-      "\t\t\t...(effort ? { effort } : {}),",
+      "\t\t\t...(thinking ? { thinking } : {}),",
       `\t\t\t// ${PATCH_MARKER}: a one-shot classifier gains nothing from thinking. Haiku`,
       "\t\t\t// ignores `effort` and thinks for 1-5k tokens anyway (10-45s per call); disabled,",
       "\t\t\t// a call takes ~1-2s, and the only verdict that changed in testing moved toward block.",
@@ -95,12 +97,12 @@ const indexEdits = [
     ].join("\n"),
   },
   {
-    oldText: "function markStreamComplete(",
+    oldText: "const activeQueryContexts = new Set<QueryContext>();\n",
     newText: [
+      "const activeQueryContexts = new Set<QueryContext>();",
       `// ${PATCH_MARKER}: queries answering a prompt pi never assembled.`,
       "const oneShotQueries = new WeakSet<QueryContext>();",
       "",
-      "function markStreamComplete(",
     ].join("\n"),
   },
   {
