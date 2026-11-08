@@ -188,16 +188,6 @@ let
         NIX_GHIDRAHOME = "${ghidraWithReva}/lib/ghidra/Ghidra";
       };
     };
-    linear = {
-      command = "npx";
-      args = [
-        "-y"
-        "@tacticlaunch/mcp-linear"
-      ];
-      env = {
-        LINEAR_API_TOKEN = "\${LINEAR_API_KEY}";
-      };
-    };
   }
   // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
     # Computer use: screenshots, clicks, typing. Installed by peekaboo.nix.
