@@ -97,14 +97,12 @@ LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls, WebSearch and
   (`http://pc:6868`); `LOCAL_MODEL_BASE_URL` overrides it per run.
 - The served context window (`meta.n_ctx`) becomes `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
   otherwise Claude Code assumes 200k for models it does not know.
-- Local sessions load only the Slack and Gmail claude.ai connectors and the
-  servers given with `--mcp-config` (an `allowedMcpServers` setting; Paseo passes
-  its plugins' servers that way). Tool definitions are resent in full on every
-  request: 1,114 MCP tools measured here cost ~929k prompt tokens against a 262k
-  window, while the 28 built-in tools cost ~20k.
-  Claude Code keeps only the last `--settings`, so the wrapper merges the
-  allowlist into any `--settings` it is given (the Agent SDK, e.g. Paseo,
-  passes one). Tool search is off: a local server cannot expand tool references.
+- MCP tools load on demand through tool search, so a session starts with only the
+  ~15 built-in tools. A local server lists declared tools at the top of the prompt
+  and accepts calls only to them, so declaring each loaded tool would make it read
+  the whole conversation again. Instead the shim puts the tool's definition where
+  ToolSearch returned it and the model calls it through `call_loaded_tool`, which
+  the shim turns back into the real call for Claude Code.
 - Sessions keep the claude.ai login, since an API key or token turns the
   connectors off. The shim passes the login's credentials only to Anthropic,
   never to the model server.

@@ -14,6 +14,8 @@
 //   - The text of the file named by CLAUDE_LOCAL_NOTES, which describes this server's
 //     limits, goes last in `system` on every agent turn: the main agent's and each
 //     subagent's. A flag such as --append-system-prompt reaches only the main agent.
+//   - Tools loaded by ToolSearch reach the model at the end of the prompt and are
+//     called through one fixed tool; see inlineLoadedTools.
 //   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
 //     models, WebSearch and auto mode's safety checks go to Anthropic with the
 //     claude.ai login; see cloudRequest. Without it the shim answers WebSearch
@@ -25,6 +27,7 @@ import http from "node:http";
 import https from "node:https";
 import os from "node:os";
 import { spawn } from "node:child_process";
+import { Transform } from "node:stream";
 
 const anthropic = new URL("https://api.anthropic.com");
 // Exa's hosted search answers without an API key, rate limited; Pi's web search uses it too.
@@ -52,11 +55,131 @@ function dropRefProperties(node) {
   return Object.values(node).reduce((found, value) => dropRefProperties(value) || found, dropped);
 }
 
+// With tool search on, Claude Code declares a tool ToolSearch loads (defer_loading)
+// from then on and answers the search with a tool_reference, which the Anthropic
+// API expands. A local server renders declared tools at the top of the prompt, so
+// each load would make it read the whole conversation again, and it drops the
+// reference. Instead the loaded tool's definition replaces the reference, where
+// the search returned it, and the model calls it through call_loaded_tool, which
+// is always declared. The model's calls are written back to the real tool on the
+// way out (unwrapLoadedToolCall) and wrapped again here when sent back as history.
+const loadedTool = "call_loaded_tool";
+const loadedToolDefinition = {
+  name: loadedTool,
+  description:
+    "Call a tool that ToolSearch loaded. Its name, description and input schema are in the ToolSearch result. " +
+    "Pass its exact name and its input as an object.",
+  input_schema: {
+    type: "object",
+    properties: { name: { type: "string" }, input: { type: "object" } },
+    required: ["name", "input"],
+  },
+};
+
+const describeLoadedTool = (name, tool) =>
+  tool
+    ? `Loaded ${name}. Call it with ${loadedTool} as {"name": "${name}", "input": {...}}.\n` +
+      `Description: ${tool.description ?? ""}\nInput schema: ${JSON.stringify(tool.input_schema ?? {})}`
+    : `${name} is no longer available.`;
+
+function inlineLoadedTools(request) {
+  if (!request.tools?.some((tool) => tool.name === "ToolSearch")) return false;
+  const loaded = new Map(request.tools.filter((tool) => tool.defer_loading).map((tool) => [tool.name, tool]));
+  request.tools = [...request.tools.filter((tool) => !tool.defer_loading), loadedToolDefinition];
+  const declared = new Set(request.tools.map((tool) => tool.name));
+  for (const message of request.messages ?? []) {
+    if (!Array.isArray(message.content)) continue;
+    for (const block of message.content) {
+      if (block.type === "tool_use" && !declared.has(block.name)) {
+        block.input = { name: block.name, input: block.input };
+        block.name = loadedTool;
+      } else if (block.type === "tool_result" && Array.isArray(block.content)) {
+        block.content = block.content.map((part) =>
+          part.type === "tool_reference"
+            ? { type: "text", text: describeLoadedTool(part.tool_name, loaded.get(part.tool_name)) }
+            : part,
+        );
+      }
+    }
+  }
+  return true;
+}
+
+// The model's call_loaded_tool call as the real tool's: {name, input} of a
+// tool_use block, or null when the call does not parse.
+function unwrapLoadedToolCall(input) {
+  try {
+    const args = typeof input === "string" ? JSON.parse(input || "{}") : input;
+    const inner = typeof args.input === "string" ? JSON.parse(args.input) : args.input;
+    return typeof args.name === "string" ? { name: args.name, input: inner ?? {} } : null;
+  } catch {
+    return null;
+  }
+}
+
+// A model server's non-streamed reply with call_loaded_tool calls written back.
+export function unwrapReply(body) {
+  const reply = JSON.parse(body);
+  for (const block of reply.content ?? []) {
+    const call = block.type === "tool_use" && block.name === loadedTool && unwrapLoadedToolCall(block.input);
+    if (call) Object.assign(block, call);
+  }
+  return JSON.stringify(reply);
+}
+
+// The same for a streamed reply: a call_loaded_tool block is held until it ends,
+// then sent as the real tool's start, its whole input and its stop.
+export function unwrapEvents() {
+  let buffer = "";
+  const held = new Map();
+  const send = (event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+
+  function rewrite(raw) {
+    if (!raw.includes(loadedTool) && held.size === 0) return `${raw}\n\n`;
+    const data = raw.split("\n").find((line) => line.startsWith("data:"));
+    const event = data && JSON.parse(data.slice(5));
+    if (event?.type === "content_block_start" && event.content_block?.name === loadedTool) {
+      held.set(event.index, { start: event, json: "" });
+      return "";
+    }
+    const call = held.get(event?.index);
+    if (!call) return `${raw}\n\n`;
+    if (event.type === "content_block_delta") {
+      call.json += event.delta?.partial_json ?? "";
+      return "";
+    }
+    held.delete(event.index);
+    const unwrapped = unwrapLoadedToolCall(call.json);
+    const block = unwrapped ? { ...call.start.content_block, name: unwrapped.name, input: {} } : call.start.content_block;
+    const json = unwrapped ? JSON.stringify(unwrapped.input) : call.json;
+    return (
+      send({ ...call.start, content_block: block }) +
+      send({ type: "content_block_delta", index: event.index, delta: { type: "input_json_delta", partial_json: json } }) +
+      `${raw}\n\n`
+    );
+  }
+
+  return new Transform({
+    transform(chunk, _encoding, done) {
+      const events = (buffer + chunk).replace(/\r\n/g, "\n").split("\n\n");
+      buffer = events.pop();
+      done(null, events.map(rewrite).join(""));
+    },
+    flush(done) {
+      done(null, buffer);
+    },
+  });
+}
+
 export function rewriteRequest(body, models = {}, notes = "") {
   const request = JSON.parse(body);
   let changed = false;
 
   if (Array.isArray(request.tools) && dropRefProperties(request.tools)) {
+    changed = true;
+  }
+
+  if (inlineLoadedTools(request)) {
     changed = true;
   }
 
@@ -226,10 +349,11 @@ function start(upstream, command) {
     req.on("end", async () => {
       let body = Buffer.concat(chunks);
       let target = upstream;
+      const messages = req.method === "POST" && req.url.split("?")[0] === "/v1/messages";
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         try {
           const cloud = cloudRequest(body.toString(), helper);
-          const query = cloud || req.url.split("?")[0] !== "/v1/messages" ? null : webSearchQuery(body.toString());
+          const query = cloud || !messages ? null : webSearchQuery(body.toString());
           if (query !== null) {
             const reply = textMessage(JSON.parse(body), await searchExa(query));
             res.writeHead(200, { "content-type": reply.type });
@@ -252,8 +376,27 @@ function start(upstream, command) {
           // Claude Code hides server errors behind silent retries, so keep the
           // request that caused one; it is the only way to debug a local server.
           if ((response.statusCode ?? 0) >= 400) saveFailure(body, response);
-          res.writeHead(response.statusCode ?? 502, response.headers);
-          response.pipe(res);
+          if (target !== upstream || !messages || response.statusCode !== 200 || response.headers["content-encoding"]) {
+            res.writeHead(response.statusCode ?? 502, response.headers);
+            response.pipe(res);
+            return;
+          }
+          const { "content-length": _, ...headers } = response.headers;
+          res.writeHead(200, headers);
+          response.setEncoding("utf8");
+          if (String(headers["content-type"]).startsWith("text/event-stream")) {
+            response.pipe(unwrapEvents()).pipe(res);
+            return;
+          }
+          let reply = "";
+          response.on("data", (chunk) => (reply += chunk));
+          response.on("end", () => {
+            try {
+              res.end(unwrapReply(reply));
+            } catch {
+              res.end(reply);
+            }
+          });
         },
       );
       forwarded.on("error", (error) => {

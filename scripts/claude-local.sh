@@ -76,37 +76,13 @@ export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # A local server cannot run auto mode's server-side safety checks, so stop
 # Claude Code asking for them and holding the first action behind a notice.
 export CLAUDE_CODE_AUTO_MODE_SERVER=0
-# Tool search needs the API to expand tool references, which a local server cannot.
-export ENABLE_TOOL_SEARCH=false
+# Tools load on demand. The shim gives a loaded tool's definition to the model
+# at the end of the prompt instead of in its tool list, which would make the
+# server read the conversation again (see inlineLoadedTools in the shim).
+export ENABLE_TOOL_SEARCH=true
 # Connect the connectors before the first request; otherwise a prompt sent at
 # startup (Paseo, -p) goes out without them and the model concludes they are missing.
 export MCP_CONNECTION_NONBLOCKING=0
 
-# MCP tool definitions are sent in full on every request and easily outweigh a
-# local context window (1,114 tools measured at ~929k tokens here), so local
-# sessions load only the Slack and Gmail claude.ai connectors and the servers
-# given with --mcp-config (Paseo passes its plugins' servers that way).
-allow='[{"serverUrl":"https://mcp.slack.com/*"},{"serverUrl":"https://gmailmcp.googleapis.com/*"}]'
-# Claude Code keeps only the last --settings, and the Agent SDK (Paseo) passes
-# its own, so merge the allowlist into it.
-settings='{}'
-args=()
-while [ $# -gt 0 ]; do
-  if [ "$1" = --settings ] && [ $# -gt 1 ]; then
-    settings=$2
-    [ -f "$settings" ] && settings=$(< "$settings")
-    shift 2
-    continue
-  fi
-  if [ "$1" = --mcp-config ] && [ $# -gt 1 ]; then
-    config=$2
-    [ -f "$config" ] && config=$(< "$config")
-    allow=$(jq -c --argjson config "$config" '. + ($config.mcpServers // {} | keys | map({serverName: .}))' <<< "$allow")
-  fi
-  args+=("$1")
-  shift
-done
-args=(--settings "$(jq -c --argjson allow "$allow" '. + {allowedMcpServers: $allow}' <<< "$settings")" "${args[@]}")
-
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
-exec node "@shim@" "$base" claude "${args[@]}"
+exec node "@shim@" "$base" claude "$@"

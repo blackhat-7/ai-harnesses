@@ -1,7 +1,15 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { cloudRequest, forwardHeaders, rewriteRequest, textMessage, webSearchQuery } = require("../scripts/claude-local-shim.mjs");
+const {
+  cloudRequest,
+  forwardHeaders,
+  rewriteRequest,
+  textMessage,
+  unwrapEvents,
+  unwrapReply,
+  webSearchQuery,
+} = require("../scripts/claude-local-shim.mjs");
 
 const reminder = (text) => ({ type: "text", text: `<system-reminder>\n${text}\n</system-reminder>` });
 
@@ -247,4 +255,74 @@ test("credentials are not forwarded to the model server", () => {
     "anthropic-version": "2023-06-01",
     "content-length": 2,
   });
+});
+
+const zomato = { name: "mcp__zomato__search", description: "Find restaurants", input_schema: { type: "object" }, defer_loading: true };
+const toolSearch = { name: "ToolSearch", input_schema: { type: "object" } };
+const searchTurn = [
+  { role: "user", content: "find momos" },
+  { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "ToolSearch", input: { query: "zomato" } }] },
+  { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: [{ type: "tool_reference", tool_name: zomato.name }] }] },
+];
+
+test("a loaded tool is described where ToolSearch returned it, and the tool list stays the same", () => {
+  const before = JSON.parse(rewriteRequest(JSON.stringify({ tools: [toolSearch], messages: searchTurn.slice(0, 1) })));
+  const after = JSON.parse(rewriteRequest(JSON.stringify({ tools: [toolSearch, zomato], messages: searchTurn })));
+
+  assert.deepEqual(after.tools, before.tools);
+  assert.deepEqual(after.tools.map((tool) => tool.name), ["ToolSearch", "call_loaded_tool"]);
+  const [text] = after.messages[2].content[0].content;
+  assert.equal(text.type, "text");
+  assert.match(text.text, /Loaded mcp__zomato__search[\s\S]*Find restaurants/);
+});
+
+test("calls to a loaded tool go back to the model as call_loaded_tool", () => {
+  const call = { type: "tool_use", id: "t2", name: zomato.name, input: { q: "momos" } };
+  const messages = [...searchTurn, { role: "assistant", content: [call] }];
+
+  const rewritten = JSON.parse(rewriteRequest(JSON.stringify({ tools: [toolSearch, zomato], messages })));
+
+  assert.deepEqual(rewritten.messages[3].content[0], {
+    ...call,
+    name: "call_loaded_tool",
+    input: { name: zomato.name, input: { q: "momos" } },
+  });
+});
+
+test("the model's call_loaded_tool call reaches Claude Code as the real tool", () => {
+  const reply = { content: [{ type: "tool_use", id: "t2", name: "call_loaded_tool", input: { name: zomato.name, input: { q: "momos" } } }] };
+
+  assert.deepEqual(JSON.parse(unwrapReply(JSON.stringify(reply))).content[0], {
+    type: "tool_use",
+    id: "t2",
+    name: zomato.name,
+    input: { q: "momos" },
+  });
+});
+
+test("a streamed call_loaded_tool call is sent as the real tool, other events unchanged", async () => {
+  const event = (data) => `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`;
+  const text = event({ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } });
+  const stream = [
+    text,
+    event({ type: "content_block_start", index: 1, content_block: { type: "tool_use", id: "t2", name: "call_loaded_tool", input: {} } }),
+    event({ type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"name": "mcp__zomato__search", ' } }),
+    event({ type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '"input": {"q": "momos"}}' } }),
+    event({ type: "content_block_stop", index: 1 }),
+  ].join("");
+  const transform = unwrapEvents();
+  const out = [];
+  transform.on("data", (chunk) => out.push(chunk.toString()));
+  // Split mid-event, as a socket does.
+  transform.write(stream.slice(0, 150));
+  transform.end(stream.slice(150));
+  await new Promise((resolve) => transform.on("end", resolve));
+
+  const events = out.join("").split("\n\n").filter(Boolean).map((raw) => JSON.parse(raw.split("data: ")[1]));
+  assert.equal(out.join("").slice(0, text.length), text);
+  assert.deepEqual(events.slice(1), [
+    { type: "content_block_start", index: 1, content_block: { type: "tool_use", id: "t2", name: zomato.name, input: {} } },
+    { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"q":"momos"}' } },
+    { type: "content_block_stop", index: 1 },
+  ]);
 });
