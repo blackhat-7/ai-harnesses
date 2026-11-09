@@ -72,7 +72,14 @@ claude-local                     # first model the server lists
 LOCAL_MODEL=qwen claude-local    # first model id containing "qwen"
 claude-local -p 'hello'          # all other arguments go to claude
 LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls, WebSearch and safety checks on Claude
+claude-hybrid                    # Opus main agent; the local model does the rest
 ```
+
+- `claude-hybrid` (experimental) keeps Opus as the main agent on the claude.ai
+  login and gives the local model the Sonnet and Haiku roles. So subagents sent
+  to `sonnet` or `haiku`, Explore, subagents given no model and helper calls
+  run locally; a subagent asked for `opus` stays on Claude. Local agents'
+  WebSearch and safety checks go to Haiku.
 
 - Without `LOCAL_HELPER_MODEL` everything runs on the local model, including
   Claude Code's Haiku role (titles, summaries, reading fetched pages). Claude

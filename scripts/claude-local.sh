@@ -8,7 +8,11 @@
 #   /model <name>                 # switch in-session
 #   LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local
 #                                 # helper calls, WebSearch and safety checks on Claude (needs usage)
+#   claude-hybrid                 # Opus main agent; sonnet and haiku work on the local model
 set -euo pipefail
+
+# Set for claude-hybrid: the Claude model that stays the main agent.
+cloud_main="@cloudMain@"
 
 base="${LOCAL_MODEL_BASE_URL:-@defaultBaseUrl@}"
 base="${base%/}"
@@ -50,6 +54,27 @@ if ! model=$(printf '%s\n' "$names" | grep -i -m1 -F "${LOCAL_MODEL:-}"); then
   exit 1
 fi
 
+# Keep the claude.ai login: any API key or token takes precedence over it and
+# turns off claude.ai connectors. The shim passes credentials only to Anthropic.
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
+# The shim adds this file's text to the system prompt of every local agent turn.
+export CLAUDE_LOCAL_NOTES="@notes@"
+
+if [ -n "$cloud_main" ]; then
+  # The local model takes the Sonnet and Haiku roles, so the subagents CLAUDE.md
+  # sends to sonnet or haiku, Explore, subagents given no model and helper calls
+  # run on it. A subagent asked for opus stays on Claude.
+  unset ANTHROPIC_DEFAULT_OPUS_MODEL
+  export ANTHROPIC_MODEL="$cloud_main"
+  export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
+  export ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
+  export CLAUDE_CODE_SUBAGENT_MODEL="$model"
+  # A helper makes the shim send Claude models' requests to Anthropic, and local
+  # agents' safety checks and WebSearch, which a local server cannot run.
+  export CLAUDE_LOCAL_HELPER_MODEL=claude-haiku-5-5
+  exec node "@shim@" "$base" claude "$@"
+fi
+
 # Claude Code assumes 200k for models it does not know; use the served window.
 context=$(jq -r --arg m "$model" \
   '(env.CLAUDE_LOCAL_MODELS | fromjson)[$m] as $id
@@ -58,9 +83,6 @@ if [ -n "$context" ]; then
   export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$context"
 fi
 
-# Keep the claude.ai login: any API key or token takes precedence over it and
-# turns off claude.ai connectors. The shim passes credentials only to Anthropic.
-unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
 export ANTHROPIC_MODEL="$model"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
@@ -70,8 +92,6 @@ export CLAUDE_LOCAL_HELPER_MODEL="$helper"
 # which the helper maps to Claude.
 export CLAUDE_CODE_SUBAGENT_MODEL="$model"
 export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
-# The shim adds this file's text to the system prompt of every agent turn.
-export CLAUDE_LOCAL_NOTES="@notes@"
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 # A local server cannot run auto mode's server-side safety checks, so stop
 # Claude Code asking for them and holding the first action behind a notice.
