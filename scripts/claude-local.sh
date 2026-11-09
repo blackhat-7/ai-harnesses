@@ -62,8 +62,8 @@ export CLAUDE_LOCAL_NOTES="@notes@"
 
 if [ -n "$cloud_main" ]; then
   # The local model takes the Sonnet and Haiku roles, so the subagents CLAUDE.md
-  # sends to sonnet or haiku, Explore, subagents given no model and helper calls
-  # run on it. A subagent asked for opus stays on Claude.
+  # sends to sonnet or haiku, subagents given no model and helper calls run on
+  # it. A subagent asked for opus, and Explore or Plan given no model, stay on Claude.
   unset ANTHROPIC_DEFAULT_OPUS_MODEL
   export ANTHROPIC_MODEL="$cloud_main"
   export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
