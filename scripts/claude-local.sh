@@ -72,7 +72,8 @@ if [ -n "$cloud_main" ]; then
   # A helper makes the shim send Claude models' requests to Anthropic, and local
   # agents' safety checks and WebSearch, which a local server cannot run.
   export CLAUDE_LOCAL_HELPER_MODEL=claude-haiku-5-5
-  exec node "@shim@" "$base" claude "$@"
+  # Tells the main agent which subagents are free; it reaches only the main agent.
+  exec node "@shim@" "$base" claude --append-system-prompt-file "@hybridNotes@" "$@"
 fi
 
 # Claude Code assumes 200k for models it does not know; use the served window.

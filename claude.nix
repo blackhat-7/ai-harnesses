@@ -26,12 +26,13 @@ let
       ];
       text =
         builtins.replaceStrings
-          [ "@defaultBaseUrl@" "@shim@" "@notes@" "@cloudMain@" ]
+          [ "@defaultBaseUrl@" "@shim@" "@notes@" "@cloudMain@" "@hybridNotes@" ]
           [
             config.aiHarnesses.claude.localModelBaseUrl
             "${./scripts/claude-local-shim.mjs}"
             "${./files/claude-local-notes.md}"
             cloudMain
+            "${./files/claude-hybrid-notes.md}"
           ]
           (builtins.readFile ./scripts/claude-local.sh);
     };
