@@ -1,5 +1,6 @@
 # Claude and the local model
 Subagents sent to `haiku` or `sonnet`, and general-purpose subagents given no model, run on a local model and use no Claude usage. `opus` subagents run on Claude Opus and do. Your system prompt names the model you run on; follow the part for it.
+Use subagents when they make the job faster or keep large reads out of your context: independent parts run in parallel, wide searches, long logs. Do quick lookups yourself.
 
 ## If you run on the local model
 - Do the work yourself or with local subagents.

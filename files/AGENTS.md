@@ -24,6 +24,8 @@ Applies to all text the user reads: replies, PR descriptions, commit messages, r
 
 ## Subagent models (Claude Code)
 
+Use subagents when they make the job faster or keep large reads out of your context: independent parts run in parallel, wide searches, long logs. Do quick lookups yourself.
+
 Set the Agent tool's `model` by how easily you can catch the agent's mistakes:
 
 - `haiku`: read-only finding and lookups, including Explore.

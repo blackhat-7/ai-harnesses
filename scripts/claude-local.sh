@@ -17,6 +17,7 @@ base="${LOCAL_MODEL_BASE_URL:-@defaultBaseUrl@}"
 base="${base%/}"
 mode=opus # opus | no-opus | offline
 main=""   # the main agent's model, from --model
+effort="" # set when the caller chose an effort
 args=()
 while [ $# -gt 0 ]; do
   case $1 in
@@ -24,6 +25,7 @@ while [ $# -gt 0 ]; do
     --no-opus) mode=no-opus ;;
     --model) main=${2:-}; shift ;;
     --model=*) main=${1#--model=} ;;
+    --effort | --effort=*) effort=1; args+=("$1") ;;
     *) args+=("$1") ;;
   esac
   shift
@@ -112,6 +114,10 @@ else
   # A local server cannot run auto mode's server-side safety checks, so stop
   # Claude Code asking for them and holding the first action behind a notice.
   export CLAUDE_CODE_AUTO_MODE_SERVER=0
+  # Claude Code asks models it does not know for high effort. On three coding
+  # tasks medium halved the local model's time (842 s to 442 s), every one
+  # still correct; Opus 5.5 defaults to medium too.
+  [ -n "$effort" ] || extra+=(--effort medium)
 fi
 
 # The shim adds this file's text to the system prompt of every local agent turn.
