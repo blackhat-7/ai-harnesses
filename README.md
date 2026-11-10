@@ -68,34 +68,41 @@ nix build .#homeConfigurations.<name>.activationPackage \
 Plain `claude` is untouched and keeps its Anthropic login.
 
 ```bash
-claude-local                     # first model the server lists
-LOCAL_MODEL=qwen claude-local    # first model id containing "qwen"
+claude-local                     # local main agent; `opus` subagents run on Claude Opus
+claude-local --model opus        # Opus main agent; sonnet and haiku work runs locally
+claude-local --no-opus           # all agents local; Claude Haiku only for helper calls, WebSearch, safety checks
+claude-local --offline           # everything local, no Claude usage
+LOCAL_MODEL=qwen claude-local    # first served model whose name contains "qwen"
 claude-local -p 'hello'          # all other arguments go to claude
-LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local   # helper calls, WebSearch and safety checks on Claude
-claude-hybrid                    # Opus main agent; the local model does the rest
 ```
 
-- `claude-hybrid` (experimental) keeps Opus as the main agent on the claude.ai
-  login and gives the local model the Sonnet and Haiku roles. So subagents sent
-  to `sonnet` or `haiku`, subagents given no model and helper calls run
-  locally. A subagent asked for `opus`, and Explore or Plan given no model,
-  stay on Opus, so `files/claude-hybrid-notes.md` (main agent only) tells Opus
-  to give them `haiku` or `sonnet`. Safety checks run on Claude's Sonnet as in
-  plain `claude`; local agents' WebSearch goes to Haiku.
+| Mode | Main agent | `haiku`/`sonnet` subagents | `opus` subagents | Haiku role, WebSearch, safety checks |
+|---|---|---|---|---|
+| default | local | local | Claude Opus | local; WebSearch and local agents' checks on Claude |
+| `--model opus` | Claude Opus | local | Claude Opus | local; Opus's checks as in plain `claude` |
+| `--no-opus` | local | local | local | Claude Haiku |
+| `--offline` | local | local | local | local; WebSearch from Exa |
 
-- Without `LOCAL_HELPER_MODEL` everything runs on the local model, including
-  Claude Code's Haiku role (titles, summaries, reading fetched pages). Claude
-  Code sends WebSearch to the main model as Anthropic's server-side `web_search`
-  tool, which a local server cannot run, so the shim answers it from Exa's
-  hosted search (no key, rate limited, as Pi's web search): 8 results with
-  highlights, each cut to 1,200 characters. WebFetch needs no Claude usage
-  either: its domain check sends only the domain name.
-- With `LOCAL_HELPER_MODEL` set to a Claude model, that model takes the Haiku
-  role, WebSearch and auto mode's safety checks over the claude.ai login (it
-  uses Claude usage and needs the internet). The checks judge every tool call
-  and took a fifth to a third of the local model's busy time. Searches go without the session's
-  thinking, at low effort: at max effort one search took 149 s instead of 11. The main model and
-  subagents stay local.
+- The launcher decides what `haiku`, `sonnet` and `opus` mean, so one CLAUDE.md
+  rule ("haiku for lookups, sonnet for edits, opus for hard calls") holds in
+  every mode. `/model opus` and `/model <local>` move the main agent in-session.
+- In the default mode `files/claude-local-main-notes.md` is added to the main
+  agent's system prompt (only the main agent's): a local main agent sends hard
+  calls to `opus` with a self-contained brief; an Opus main agent gives the work
+  to local subagents. Built-in Explore and Plan given no model run on the main
+  model, so the note tells Opus to give them `haiku` or `sonnet`.
+- Paseo asks for the model `local`, which the launcher turns into the served model.
+- Offline, Claude Code sends WebSearch to the main model as Anthropic's
+  server-side `web_search` tool, which a local server cannot run, so the shim
+  answers it from Exa's hosted search (no key, rate limited, as Pi's web
+  search): 8 results with highlights, each cut to 1,200 characters. WebFetch
+  needs no Claude usage either: its domain check sends only the domain name.
+- Otherwise the shim sends requests for Claude models to Anthropic over the
+  claude.ai login, and WebSearch and auto mode's safety checks from local agents
+  to Claude Haiku (they need the internet and use Claude usage). The checks
+  judge every tool call and took a fifth to a third of the local model's busy
+  time. Searches go without the session's thinking, at low effort: at max
+  effort one search took 149 s instead of 11.
 
 - Models are discovered from `GET /v1/models` at startup, never pinned. Each one
   is named after its file (`Qwen3.8-27B-Uncensored-Q4_K_M`), because llama.cpp

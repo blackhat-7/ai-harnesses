@@ -1,26 +1,33 @@
 #!/usr/bin/env bash
-# Run Claude Code against a local Anthropic-compatible model server
+# Run Claude Code with a local Anthropic-compatible model server
 # (llama.cpp >= b7xxx, Ollama >= 0.14, or any gateway serving /v1/messages).
 #
-# Models are discovered from /v1/models, never hardcoded:
-#   claude-local                  # first model the server lists
-#   LOCAL_MODEL=qwen claude-local # first model whose name contains "qwen"
-#   /model <name>                 # switch in-session
-#   LOCAL_HELPER_MODEL=claude-haiku-5-5 claude-local
-#                                 # helper calls, WebSearch and safety checks on Claude (needs usage)
-#   claude-hybrid                 # Opus main agent; sonnet and haiku work on the local model
+#   claude-local                  # local main agent; `opus` subagents run on Claude Opus
+#   claude-local --model opus     # Opus main agent; sonnet and haiku work runs locally
+#   claude-local --no-opus        # all agents local; Claude Haiku only for helper calls,
+#                                 # WebSearch and safety checks
+#   claude-local --offline        # everything local, no Claude usage
+#   LOCAL_MODEL=qwen claude-local # the first served model whose name contains "qwen"
+#   /model opus, /model <local>   # switch the main agent in-session
+#
+# Models are discovered from /v1/models, never hardcoded. Other arguments go to claude.
 set -euo pipefail
-
-# Set for claude-hybrid: the Claude model that stays the main agent.
-cloud_main="@cloudMain@"
 
 base="${LOCAL_MODEL_BASE_URL:-@defaultBaseUrl@}"
 base="${base%/}"
-# A Claude model here takes Claude Code's Haiku role (titles, summaries, reading
-# fetched pages), WebSearch and auto mode's safety checks over the claude.ai
-# login. Without one the local model does everything and the shim answers
-# WebSearch from Exa's free search.
-helper="${LOCAL_HELPER_MODEL:-}"
+mode=opus # opus | no-opus | offline
+main=""   # the main agent's model, from --model
+args=()
+while [ $# -gt 0 ]; do
+  case $1 in
+    --offline) mode=offline ;;
+    --no-opus) mode=no-opus ;;
+    --model) main=${2:-}; shift ;;
+    --model=*) main=${1#--model=} ;;
+    *) args+=("$1") ;;
+  esac
+  shift
+done
 
 if ! command -v claude > /dev/null; then
   echo "claude-local: claude is not on PATH" >&2
@@ -54,49 +61,62 @@ if ! model=$(printf '%s\n' "$names" | grep -i -m1 -F "${LOCAL_MODEL:-}"); then
   exit 1
 fi
 
+# Paseo cannot know the served name, so it asks for "local".
+[ -z "$main" ] || [ "$main" = local ] && main=$model
+export ANTHROPIC_MODEL="$main"
+
 # Keep the claude.ai login: any API key or token takes precedence over it and
 # turns off claude.ai connectors. The shim passes credentials only to Anthropic.
-unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
+unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_DEFAULT_OPUS_MODEL
+# The local model takes the Sonnet role and runs subagents given no model, so
+# the subagents CLAUDE.md sends to sonnet run on it in every mode.
+export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
+export CLAUDE_CODE_SUBAGENT_MODEL="$model"
+extra=()
+case $mode in
+  opus)
+    # Haiku work runs locally too; only `opus` reaches Claude. The helper makes
+    # the shim send Claude models' requests to Anthropic, and local agents'
+    # WebSearch and safety checks, which a local server cannot run.
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
+    export CLAUDE_LOCAL_HELPER_MODEL=claude-haiku-5-5
+    # Tells the main agent, local or Opus, when to use the other; it reaches only the main agent.
+    extra=(--append-system-prompt-file "@mainNotes@")
+    ;;
+  no-opus)
+    # Claude Code's Haiku role (titles, summaries, reading fetched pages) on Claude Haiku.
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL=claude-haiku-5-5
+    export CLAUDE_LOCAL_HELPER_MODEL=claude-haiku-5-5
+    ;;
+  offline)
+    # The shim answers WebSearch from Exa's free search.
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
+    export CLAUDE_LOCAL_HELPER_MODEL=""
+    ;;
+esac
+# Without opus, keep every subagent local even when CLAUDE.md asks for haiku.
+[ "$mode" = opus ] || export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
+
+if [ "$mode" = opus ] && [[ $main == opus || $main == claude-* ]]; then
+  # A Claude main agent keeps its own context window and Anthropic's
+  # server-side review of its actions.
+  :
+else
+  # Claude Code assumes 200k for models it does not know; use the served window.
+  context=$(jq -r --arg m "$model" \
+    '(env.CLAUDE_LOCAL_MODELS | fromjson)[$m] as $id
+     | .data[] | select(.id == $id) | .meta.n_ctx // .meta.n_ctx_train // empty' <<< "$catalog")
+  [ -z "$context" ] || export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$context"
+  # A local server cannot run auto mode's server-side safety checks, so stop
+  # Claude Code asking for them and holding the first action behind a notice.
+  export CLAUDE_CODE_AUTO_MODE_SERVER=0
+fi
+
 # The shim adds this file's text to the system prompt of every local agent turn.
 export CLAUDE_LOCAL_NOTES="@notes@"
-
-if [ -n "$cloud_main" ]; then
-  # The local model takes the Sonnet and Haiku roles, so the subagents CLAUDE.md
-  # sends to sonnet or haiku, subagents given no model and helper calls run on
-  # it. A subagent asked for opus, and Explore or Plan given no model, stay on Claude.
-  unset ANTHROPIC_DEFAULT_OPUS_MODEL
-  export ANTHROPIC_MODEL="$cloud_main"
-  export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
-  export ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
-  export CLAUDE_CODE_SUBAGENT_MODEL="$model"
-  # A helper makes the shim send Claude models' requests to Anthropic, and local
-  # agents' safety checks and WebSearch, which a local server cannot run.
-  export CLAUDE_LOCAL_HELPER_MODEL=claude-haiku-5-5
-  # Tells the main agent which subagents are free; it reaches only the main agent.
-  exec node "@shim@" "$base" claude --append-system-prompt-file "@hybridNotes@" "$@"
-fi
-
-# Claude Code assumes 200k for models it does not know; use the served window.
-context=$(jq -r --arg m "$model" \
-  '(env.CLAUDE_LOCAL_MODELS | fromjson)[$m] as $id
-   | .data[] | select(.id == $id) | .meta.n_ctx // .meta.n_ctx_train // empty' <<< "$catalog")
-if [ -n "$context" ]; then
-  export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$context"
-fi
-
-export ANTHROPIC_MODEL="$model"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="$model"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="$model"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="${helper:-$model}"
-export CLAUDE_LOCAL_HELPER_MODEL="$helper"
-# Keep every subagent on the local model, even when CLAUDE.md asks for haiku,
-# which the helper maps to Claude.
-export CLAUDE_CODE_SUBAGENT_MODEL="$model"
-export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
-# A local server cannot run auto mode's server-side safety checks, so stop
-# Claude Code asking for them and holding the first action behind a notice.
-export CLAUDE_CODE_AUTO_MODE_SERVER=0
 # Tools load on demand. The shim gives a loaded tool's definition to the model
 # at the end of the prompt instead of in its tool list, which would make the
 # server read the conversation again (see inlineLoadedTools in the shim).
@@ -106,4 +126,4 @@ export ENABLE_TOOL_SEARCH=true
 export MCP_CONNECTION_NONBLOCKING=0
 
 # The shim sets ANTHROPIC_BASE_URL to its own port and runs claude as its child.
-exec node "@shim@" "$base" claude "$@"
+exec node "@shim@" "$base" claude ${extra[@]+"${extra[@]}"} ${args[@]+"${args[@]}"}

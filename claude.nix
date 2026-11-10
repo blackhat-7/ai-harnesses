@@ -11,31 +11,23 @@ let
   isYolo = mode == "yolo";
   isRestricted = mode == "restricted";
 
-  # `claude` itself keeps its own Anthropic login; these wrappers only set a
-  # local endpoint for the sessions they start. Models are discovered at runtime.
-  # claude-hybrid keeps Opus as the main agent and runs the rest locally.
-  mkClaudeLocal =
-    name: cloudMain:
-    pkgs.writeShellApplication {
-      inherit name;
-      runtimeInputs = [
-        pkgs.curl
-        pkgs.jq
-        pkgs.gnugrep
-        pkgs.nodejs
-      ];
-      text =
-        builtins.replaceStrings
-          [ "@defaultBaseUrl@" "@shim@" "@notes@" "@cloudMain@" "@hybridNotes@" ]
-          [
-            config.aiHarnesses.claude.localModelBaseUrl
-            "${./scripts/claude-local-shim.mjs}"
-            "${./files/claude-local-notes.md}"
-            cloudMain
-            "${./files/claude-hybrid-notes.md}"
-          ]
-          (builtins.readFile ./scripts/claude-local.sh);
-    };
+  # `claude` itself keeps its own Anthropic login; this wrapper only sets a
+  # local endpoint for the sessions it starts. Models are discovered at runtime.
+  claudeLocal = pkgs.writeShellApplication {
+    name = "claude-local";
+    runtimeInputs = [
+      pkgs.curl
+      pkgs.jq
+      pkgs.gnugrep
+      pkgs.nodejs
+    ];
+    text = builtins.replaceStrings [ "@defaultBaseUrl@" "@shim@" "@notes@" "@mainNotes@" ] [
+      config.aiHarnesses.claude.localModelBaseUrl
+      "${./scripts/claude-local-shim.mjs}"
+      "${./files/claude-local-notes.md}"
+      "${./files/claude-local-main-notes.md}"
+    ] (builtins.readFile ./scripts/claude-local.sh);
+  };
 
   # Claude Code reaches Atlassian, Slack and Gmail through claude.ai connectors, so the
   # local MCP servers would only duplicate them (slack and gmail would call Claude Code itself).
@@ -93,10 +85,7 @@ let
   };
 in
 {
-  home.packages = [
-    (mkClaudeLocal "claude-local" "")
-    (mkClaudeLocal "claude-hybrid" "opus")
-  ];
+  home.packages = [ claudeLocal ];
 
   home.activation.writeClaudeConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/.claude"
