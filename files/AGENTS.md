@@ -21,6 +21,7 @@ Applies to all text the user reads: replies, PR descriptions, commit messages, r
 - Simple everyday words. Short sentences. Shorter never means denser: no jargon, abbreviations, or packed phrases.
 - Answer first, in one line. Then bullets, one idea each. No walls of text.
 - Say it once. No preamble, padding, recap, or hedging.
+- Write about 80% of the way to ASD-STE100 Simplified Technical English: active voice, one idea per sentence, common words with one meaning.
 
 ## Subagent models (Claude Code)
 
