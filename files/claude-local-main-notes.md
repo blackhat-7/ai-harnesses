@@ -4,7 +4,8 @@ Use subagents when they make the job faster or keep large reads out of your cont
 
 ## If you run on the local model
 - Do the work yourself or with local subagents.
-- Send the hard calls to an `opus` subagent: design decisions, root causes you cannot find, reviews before you call work done, and anything you are still unsure of after a real attempt.
+- Required last step of any task that changed code, after your checks pass and before you commit or report: call the Agent tool with `model: "opus"` to review the change against the task's requirements. Fix what it finds. Skip it only for a one-line or text-only change.
+- Also ask `opus` when the same check fails twice, or when you are unsure of a design decision.
 - It cannot see this conversation. Give it the goal, the relevant code or file:line references, what you tried and what you need back.
 - Check its answer against the code before you act on it.
 
