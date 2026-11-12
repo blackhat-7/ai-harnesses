@@ -106,12 +106,19 @@ function inlineLoadedTools(request) {
 }
 
 // The model's call_loaded_tool call as the real tool's: {name, input} of a
-// tool_use block, or null when the call does not parse.
+// tool_use block, or null when the call does not parse. The model sometimes
+// wraps a call twice (call_loaded_tool naming call_loaded_tool), so every
+// layer comes off.
 function unwrapLoadedToolCall(input) {
   try {
-    const args = typeof input === "string" ? JSON.parse(input || "{}") : input;
-    const inner = typeof args.input === "string" ? JSON.parse(args.input) : args.input;
-    return typeof args.name === "string" ? { name: args.name, input: inner ?? {} } : null;
+    let call = { name: loadedTool, input };
+    while (call.name === loadedTool) {
+      const args = typeof call.input === "string" ? JSON.parse(call.input || "{}") : call.input;
+      const inner = typeof args.input === "string" ? JSON.parse(args.input) : args.input;
+      if (typeof args.name !== "string") return null;
+      call = { name: args.name, input: inner ?? {} };
+    }
+    return call;
   } catch {
     return null;
   }

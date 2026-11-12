@@ -300,6 +300,18 @@ test("the model's call_loaded_tool call reaches Claude Code as the real tool", (
   });
 });
 
+test("a call_loaded_tool call wrapped twice still reaches Claude Code as the real tool", () => {
+  const twice = { name: "call_loaded_tool", input: { name: zomato.name, input: { q: "momos" } } };
+  const reply = { content: [{ type: "tool_use", id: "t3", name: "call_loaded_tool", input: twice }] };
+
+  assert.deepEqual(JSON.parse(unwrapReply(JSON.stringify(reply))).content[0], {
+    type: "tool_use",
+    id: "t3",
+    name: zomato.name,
+    input: { q: "momos" },
+  });
+});
+
 test("a streamed call_loaded_tool call is sent as the real tool, other events unchanged", async () => {
   const event = (data) => `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`;
   const text = event({ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } });
