@@ -94,12 +94,17 @@ let
 
   allMcpServers = {
     bestiary = {
-      command = uvToolBin "bestiary";
-      args = [ "serve" ];
-      env = {
-        REDDIT_CLIENT_ID = "\${REDDIT_CLIENT_ID}";
-        REDDIT_CLIENT_SECRET = "\${REDDIT_CLIENT_SECRET}";
-      };
+      # Read the Reddit keys from the creds files: sessions not started from
+      # fish (e.g. Paseo's systemd unit) do not have them in the environment.
+      command = "sh";
+      args = [
+        "-c"
+        ''
+          REDDIT_CLIENT_ID=$(cat "$HOME/.config/creds/reddit_id.txt") \
+          REDDIT_CLIENT_SECRET=$(cat "$HOME/.config/creds/reddit_secret.txt") \
+          exec ${uvToolBin "bestiary"} serve
+        ''
+      ];
     };
     code-review-graph = {
       command = uvToolBin "code-review-graph";
