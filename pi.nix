@@ -16,6 +16,9 @@ let
   piPackageEnabled = package: !builtins.elem (package.source or package) disabledPiPackages;
   piPermissionSystemEnabled = mode == "restricted" && piPackageEnabled "npm:@gotgenes/pi-permission-system";
   piAutomodeEnabled = mode == "auto" && piPackageEnabled "npm:@czottmann/pi-automode";
+  # Pinned: 0.13.0 dropped prompt-capture.ts, which the unrecorded-prompt patch needs
+  # to tell automode's classifier calls apart from pi's own.
+  piClaudeBridge = "npm:pi-claude-bridge@0.12.0";
 
   readonlyBashSrc = aiHarnessesInputs.readonly-bash;
   readonlyBashPkg = pkgs.callPackage "${readonlyBashSrc}/package.nix" {
@@ -87,7 +90,7 @@ let
       "npm:pi-claude-style-tools"
       "npm:@codexstar/pi-listen"
       "npm:pi-lean-ctx"
-      "npm:pi-claude-bridge"
+      piClaudeBridge
       # The mode prompt lives in the extension; its skills only duplicate it.
       {
         source = "git:github.com/DietrichGebert/ponytail";
@@ -326,7 +329,7 @@ let
   writePiLeanCtxConfig = lib.optionalString (piPackageEnabled "npm:pi-lean-ctx") ''
     ${helpers.writeJson "$HOME/.pi/agent/extensions/pi-lean-ctx/config.json" piLeanCtxConfig}
   '';
-  writePiClaudeBridgeConfig = lib.optionalString (piPackageEnabled "npm:pi-claude-bridge") ''
+  writePiClaudeBridgeConfig = lib.optionalString (piPackageEnabled piClaudeBridge) ''
     ${helpers.writeJson "$HOME/.pi/agent/claude-bridge.json" piClaudeBridgeConfig}
   '';
   writePiPermissionSystemConfig = lib.optionalString piPermissionSystemEnabled ''
@@ -364,7 +367,7 @@ let
   # pi-automode's classifier hands the bridge a system prompt pi never assembled,
   # which upstream rejects rather than forward; automode then fails closed and
   # blocks every tool call.
-  patchPiClaudeBridge = lib.optionalString (piPackageEnabled "npm:pi-claude-bridge") ''
+  patchPiClaudeBridge = lib.optionalString (piPackageEnabled piClaudeBridge) ''
     ${pkgs.nodejs_26}/bin/node ${./patches/patch-pi-claude-bridge-unrecorded-prompt.js}
   '';
   removeDisabledPiPackages = lib.concatMapStringsSep "\n" (source: ''
