@@ -246,12 +246,12 @@ const webSearchTool = (request) => request.tools?.find((tool) => String(tool.typ
 // of request it sends to the main model move to the helper. WebSearch carries
 // Anthropic's server-side search tool, which a local server cannot run. Safety
 // checks took a fifth to a third of the local model's busy time, ahead of the
-// actions they hold up.
+// actions they hold up; with an Opus main agent they would run on Opus.
 export function cloudRequest(body, helper) {
   if (!helper) return null;
   const request = JSON.parse(body);
-  if (String(request.model).startsWith("claude-")) return body;
   if (isSafetyCheck(request)) return JSON.stringify({ ...request, model: helper });
+  if (String(request.model).startsWith("claude-")) return body;
   if (!webSearchTool(request)) return null;
   // A search inherits the session's thinking and effort: at max effort the helper
   // took 149 s for one search against 11 s at low, for the same links.

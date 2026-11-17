@@ -134,6 +134,12 @@ test("with a helper model, Claude models, WebSearch and safety checks go to Anth
   assert.equal(cloudRequest(local, "claude-haiku-5-5"), null);
 });
 
+test("a safety check for an Opus main agent goes to the helper, not Opus", () => {
+  const opusCheck = JSON.stringify({ ...safetyCheck, model: "claude-opus-5-5" });
+
+  assert.equal(JSON.parse(cloudRequest(opusCheck, "claude-haiku-5-5")).model, "claude-haiku-5-5");
+});
+
 test("a search goes to the helper without the session's thinking, at low effort", () => {
   const search = {
     model: "Flash-Next",

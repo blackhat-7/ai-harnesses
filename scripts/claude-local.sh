@@ -101,9 +101,13 @@ esac
 # Without opus, keep every subagent local even when CLAUDE.md asks for haiku.
 [ "$mode" = opus ] || export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
 
+# Auto mode's server-side safety check runs only on Anthropic's servers, so a
+# local agent's actions get none and are denied, even when the main agent is
+# Opus. Use Claude Code's own check, which the shim sends to Claude.
+export CLAUDE_CODE_AUTO_MODE_SERVER=0
+
 if [ "$mode" = opus ] && [[ $main == opus || $main == claude-* ]]; then
-  # A Claude main agent keeps its own context window and Anthropic's
-  # server-side review of its actions.
+  # A Claude main agent keeps its own context window and effort.
   :
 else
   # Claude Code assumes 200k for models it does not know; use the served window.
@@ -111,9 +115,6 @@ else
     '(env.CLAUDE_LOCAL_MODELS | fromjson)[$m] as $id
      | .data[] | select(.id == $id) | .meta.n_ctx // .meta.n_ctx_train // empty' <<< "$catalog")
   [ -z "$context" ] || export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$context"
-  # A local server cannot run auto mode's server-side safety checks, so stop
-  # Claude Code asking for them and holding the first action behind a notice.
-  export CLAUDE_CODE_AUTO_MODE_SERVER=0
   # Claude Code asks models it does not know for high effort. On three coding
   # tasks medium halved the local model's time (842 s to 442 s), every one
   # still correct; Opus 5.5 defaults to medium too.
