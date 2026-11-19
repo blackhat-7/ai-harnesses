@@ -150,6 +150,10 @@ let
       type = "http";
       url = "https://mcp.atlassian.com/v1/mcp";
     };
+    indmoney = {
+      type = "http";
+      url = "https://mcp.indmoney.com/mcp";
+    };
     posthog = {
       type = "http";
       url = "https://mcp.posthog.com/mcp?readonly=true&mode=tools";
@@ -205,7 +209,7 @@ let
     // {
       lifecycle = v.lifecycle or "lazy";
     }
-    // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "posthog" ]) {
+    // lib.optionalAttrs (builtins.elem name [ "aftershoot-mcp" "indmoney" "posthog" ]) {
       auth = "oauth";
     }
     // lib.optionalAttrs (builtins.elem name [ "slack" "gmail" ]) {
