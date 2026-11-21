@@ -43,6 +43,12 @@ Set the Agent tool's `model` by how easily you can catch the agent's mistakes:
 - Two tailnets: home is the Tailscale app; work is a userspace `tailscaled` (`tailscale --socket=$HOME/.local/state/tailscale-work/tailscaled.sock status`).
 - `ssh` reaches both. Other traffic to work hosts needs its proxy: `curl -x http://127.0.0.1:1055 …`.
 
+## sudo
+
+- Local `sudo` (the user's PC and Mac) needs no password: it asks the user's phone to approve the exact command. When a task needs root, run plain `sudo <command>`. Don't ask for a password, and don't tell the user to run it instead.
+- Don't use `sudo -n`, `-S` or `-A`: they fail without asking the phone. Each sudo sends one push, so keep the command clear and avoid many small sudo calls.
+- If sudo says denied or no answer, stop and ask the user. Don't retry.
+
 ## Time-sensitive work
 
 When the user says it is urgent or gives a deadline: own it yourself (no unchecked subagents), pilot one item end to end first, and check real state (not agent reports) as often as the job needs. Warn the user the moment anything blocks or the ETA slips. If they are away, resolve blockers yourself in the way that loses the least time, but never with anything that raises cost noticeably or is hard to undo.
