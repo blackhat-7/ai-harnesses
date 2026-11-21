@@ -139,7 +139,7 @@ let
             "network.proxy.autoconfig_url=file://${config.home.homeDirectory}/.config/tailscale/work.pac"
           ]
         else
-          [ "/usr/bin/zen" ]
+          [ "/usr/bin/zen-browser" ]
       );
     };
     aftershoot-mcp = {
