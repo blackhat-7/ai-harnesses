@@ -22,6 +22,8 @@ Applies to all text the user reads: replies, PR descriptions, commit messages, r
 - Answer first, in one line. Then bullets, one idea each. No walls of text.
 - Say it once. No preamble, padding, recap, or hedging.
 - Write about 80% of the way to ASD-STE100 Simplified Technical English: active voice, one idea per sentence, common words with one meaning.
+- When a picture shows structure better than words, add a diagram to the reply as a ```mermaid block. Do this even if the user did not ask for one. Examples: flows, sequences, state machines, architecture, dependencies, timelines, before and after. The user's chat apps draw the block, so it needs no HTML page or tool call.
+- Keep the diagram small: about 12 nodes or fewer. Never add one to a simple answer. The text answer still comes first. The diagram does not count toward the 3–5 lines or 80 words.
 
 ## Subagent models (Claude Code)
 
