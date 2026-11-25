@@ -118,7 +118,11 @@ claude-local -p 'hello'          # all other arguments go to claude
   and accepts calls only to them, so declaring each loaded tool would make it read
   the whole conversation again. Instead the shim puts the tool's definition where
   ToolSearch returned it and the model calls it through `call_loaded_tool`, which
-  the shim turns back into the real call for Claude Code.
+  the shim turns back into the real call for Claude Code. When the model calls a
+  tool by its own name anyway (loaded or not), the server cannot read the call
+  and Strata sends it back as text, which Claude Code would show before ending
+  the turn. The shim turns that text into the call, so Claude Code runs it or
+  tells the model to load the tool first.
 - Sessions keep the claude.ai login, since an API key or token turns the
   connectors off. The shim passes the login's credentials only to Anthropic,
   never to the model server.

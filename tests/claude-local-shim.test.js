@@ -4,6 +4,7 @@ const test = require("node:test");
 const {
   cloudRequest,
   forwardHeaders,
+  recoverCalls,
   rewriteRequest,
   textMessage,
   unwrapEvents,
@@ -342,5 +343,101 @@ test("a streamed call_loaded_tool call is sent as the real tool, other events un
     { type: "content_block_start", index: 1, content_block: { type: "tool_use", id: "t2", name: zomato.name, input: {} } },
     { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"q":"momos"}' } },
     { type: "content_block_stop", index: 1 },
+  ]);
+});
+
+// Strata's stream for a call to a tool the request did not declare: the call is text.
+const textBlock = (index, ...texts) => [
+  { type: "content_block_start", index, content_block: { type: "text", text: "" } },
+  ...texts.map((text) => ({ type: "content_block_delta", index, delta: { type: "text_delta", text } })),
+  { type: "content_block_stop", index },
+];
+const replyEnd = (extra = {}) => [
+  { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 43 }, ...extra },
+  { type: "message_stop" },
+];
+const toolUse = (index, name, input) => [
+  { type: "content_block_start", index, content_block: { type: "tool_use", id: "toolu_?", name, input: {} } },
+  { type: "content_block_delta", index, delta: { type: "input_json_delta", partial_json: JSON.stringify(input) } },
+  { type: "content_block_stop", index },
+];
+
+async function recover(events, schemas) {
+  const stream = [": keep-alive\n\n", ...events.map((data) => `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`)].join("");
+  const transform = recoverCalls(schemas);
+  const out = [];
+  transform.on("data", (chunk) => out.push(chunk.toString()));
+  transform.write(stream.slice(0, 100));
+  transform.end(stream.slice(100));
+  await new Promise((resolve) => transform.on("end", resolve));
+  return out
+    .join("")
+    .split("\n\n")
+    .filter((raw) => raw.startsWith("event:"))
+    .map((raw) => JSON.parse(raw.split("data: ")[1]))
+    .map((event) => {
+      if (event.content_block?.type !== "tool_use") return event;
+      assert.match(event.content_block.id, /^toolu_\w+$/);
+      return { ...event, content_block: { ...event.content_block, id: "toolu_?" } };
+    });
+}
+
+test("a call the server sent back as text reaches Claude Code as a tool_use after the text before it", async () => {
+  // As Strata streamed it: the tag with the newlines before it, then the rest token by token.
+  const call = ["\n\n<tool_call>", "\n<function=WebSearch>", "\n<parameter", "=query", ">", "\nllama.cpp", " latest"];
+  call.push("\n</", "parameter", ">", "\n</function>", "\n</tool_call>");
+  const rejected = { strata_rejected_tool_calls: [{ name: "WebSearch", reason: "undeclared" }] };
+
+  const events = await recover([...textBlock(0, "I'll look", " it up.", ...call), ...replyEnd(rejected)]);
+
+  assert.deepEqual(events, [
+    ...textBlock(0, "I'll look", " it up."),
+    ...toolUse(1, "WebSearch", { query: "llama.cpp latest" }),
+    { ...replyEnd(rejected)[0], delta: { stop_reason: "tool_use", stop_sequence: null } },
+    { type: "message_stop" },
+  ]);
+});
+
+test("a reply that is only such a call has no text block, and values follow the loaded tool's schema", async () => {
+  const thinking = [
+    { type: "content_block_start", index: 0, content_block: { type: "thinking", thinking: "" } },
+    { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "Search." } },
+    { type: "content_block_stop", index: 0 },
+  ];
+  const call =
+    `<tool_call>\n<function=${zomato.name}>\n` +
+    "<parameter=q>\n2026\n</parameter>\n<parameter=limit>\n5\n</parameter>\n</function>\n</tool_call>";
+  const schemas = { [zomato.name]: { type: "object", properties: { q: { type: "string" }, limit: { type: "integer" } } } };
+
+  const events = await recover([...thinking, ...textBlock(1, "\n\n", call), ...replyEnd()], schemas);
+
+  assert.deepEqual(events, [
+    ...thinking,
+    ...toolUse(1, zomato.name, { q: "2026", limit: 5 }),
+    { ...replyEnd()[0], delta: { stop_reason: "tool_use", stop_sequence: null } },
+    { type: "message_stop" },
+  ]);
+});
+
+test("text that holds more than calls goes out as the server sent it", async () => {
+  const quoted = "```\n<tool_call>\n<function=WebSearch>\n</function>\n</tool_call>\n```";
+
+  const events = await recover([...textBlock(0, "Like this:\n", quoted), ...replyEnd()]);
+
+  assert.equal(events.map((event) => event.delta?.text ?? "").join(""), `Like this:\n${quoted}`);
+  assert.deepEqual(events.slice(-3), [{ type: "content_block_stop", index: 0 }, ...replyEnd()]);
+});
+
+test("a call at the end of a non-streamed reply's text becomes a tool_use", () => {
+  const text = "Searching.\n\n<tool_call>\n<function=WebSearch>\n<parameter=query>\nmomos\n</parameter>\n</function>\n</tool_call>";
+  const reply = { content: [{ type: "text", text }], stop_reason: "end_turn" };
+
+  const { content, stop_reason } = JSON.parse(unwrapReply(JSON.stringify(reply)));
+
+  assert.equal(stop_reason, "tool_use");
+  assert.match(content[1].id, /^toolu_\w+$/);
+  assert.deepEqual(content, [
+    { type: "text", text: "Searching.\n\n" },
+    { type: "tool_use", id: content[1].id, name: "WebSearch", input: { query: "momos" } },
   ]);
 });

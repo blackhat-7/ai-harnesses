@@ -16,6 +16,8 @@
 //     subagent's. A flag such as --append-system-prompt reaches only the main agent.
 //   - Tools loaded by ToolSearch reach the model at the end of the prompt and are
 //     called through one fixed tool; see inlineLoadedTools.
+//   - A tool call the server sent back as text, because it names a tool the request
+//     does not declare, reaches Claude Code as a call; see parseToolCalls.
 //   - With CLAUDE_LOCAL_HELPER_MODEL set (a Claude model), requests for Claude
 //     models, WebSearch and auto mode's safety checks go to Anthropic with the
 //     claude.ai login; see cloudRequest. Without it the shim answers WebSearch
@@ -27,6 +29,7 @@ import http from "node:http";
 import https from "node:https";
 import os from "node:os";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { Transform } from "node:stream";
 
 const anthropic = new URL("https://api.anthropic.com");
@@ -105,6 +108,13 @@ function inlineLoadedTools(request) {
   return true;
 }
 
+// The input schema of each tool ToolSearch loaded, by name. The server is not told
+// about them, but a call to one that it sends back as text needs it; see parseToolCalls.
+const loadedSchemas = (body) =>
+  Object.fromEntries(
+    (JSON.parse(body).tools ?? []).filter((tool) => tool.defer_loading).map((tool) => [tool.name, tool.input_schema]),
+  );
+
 // The model's call_loaded_tool call as the real tool's: {name, input} of a
 // tool_use block, or null when the call does not parse. The model sometimes
 // wraps a call twice (call_loaded_tool naming call_loaded_tool), so every
@@ -124,27 +134,90 @@ function unwrapLoadedToolCall(input) {
   }
 }
 
-// A model server's non-streamed reply with call_loaded_tool calls written back.
-export function unwrapReply(body) {
+// A call the model writes to a tool the request does not declare is one the
+// server cannot read: a deferred tool it has not loaded, or a loaded one called
+// by its own name instead of through call_loaded_tool. Strata sends such a call
+// back as the text the model wrote, which Claude Code would show as the answer,
+// ending the turn. The shim makes it the tool_use it is, so Claude Code runs it,
+// or answers that the tool must be loaded first and the model goes on.
+const callTag = "<tool_call>";
+
+function parseJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+// The calls `text` consists of, in the XML form Qwen models write, as tool_use
+// blocks, or null when it holds anything else. A value stays a string where the
+// tool's schema says so, and is read as JSON elsewhere when it parses.
+function parseToolCalls(text, schemas = {}) {
+  const calls = [];
+  const rest = text.replace(
+    /<tool_call>\s*<function=([^>\s]+)>([\s\S]*?)<\/function>\s*<\/tool_call>/g,
+    (_, name, body) => {
+      const input = {};
+      for (const [, key, value] of body.matchAll(/<parameter=([^>\s]+)>\n?([\s\S]*?)\n?<\/parameter>/g)) {
+        input[key] = schemas[name]?.properties?.[key]?.type === "string" ? value : parseJson(value);
+      }
+      calls.push({ type: "tool_use", id: `toolu_${randomUUID().replaceAll("-", "")}`, name, input });
+      return "";
+    },
+  );
+  return calls.length > 0 && !rest.trim() ? calls : null;
+}
+
+// A model server's non-streamed reply with call_loaded_tool calls written back,
+// and calls the server sent back at the end of its text made tool_use blocks.
+export function unwrapReply(body, schemas = {}) {
   const reply = JSON.parse(body);
   for (const block of reply.content ?? []) {
     const call = block.type === "tool_use" && block.name === loadedTool && unwrapLoadedToolCall(block.input);
     if (call) Object.assign(block, call);
   }
+  const last = reply.content?.at(-1);
+  const at = last?.type === "text" ? last.text.indexOf(callTag) : -1;
+  const calls = at >= 0 && parseToolCalls(last.text.slice(at), schemas);
+  if (calls) {
+    const text = last.text.slice(0, at);
+    reply.content.splice(-1, 1, ...(text.trim() ? [{ ...last, text }] : []), ...calls);
+    reply.stop_reason = "tool_use";
+  }
   return JSON.stringify(reply);
 }
 
-// The same for a streamed reply: a call_loaded_tool block is held until it ends,
-// then sent as the real tool's start, its whole input and its stop.
-export function unwrapEvents() {
-  let buffer = "";
-  const held = new Map();
-  const send = (event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+const send = (event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 
-  function rewrite(raw) {
+function readEvent(raw) {
+  const data = raw.split("\n").find((line) => line.startsWith("data:"));
+  return data ? JSON.parse(data.slice(5)) : null;
+}
+
+// A stream of server-sent events, each replaced by what rewrite returns for it;
+// finish returns what is still held when the stream ends.
+function eventStream(rewrite, finish = () => "") {
+  let buffer = "";
+  return new Transform({
+    transform(chunk, _encoding, done) {
+      const events = (buffer + chunk).replace(/\r\n/g, "\n").split("\n\n");
+      buffer = events.pop();
+      done(null, events.map(rewrite).join(""));
+    },
+    flush(done) {
+      done(null, finish() + buffer);
+    },
+  });
+}
+
+// The same for a streamed reply, in two steps. First a call_loaded_tool block is
+// held until it ends, then sent as the real tool's start, its whole input and its stop.
+export function unwrapEvents() {
+  const held = new Map();
+  return eventStream((raw) => {
     if (!raw.includes(loadedTool) && held.size === 0) return `${raw}\n\n`;
-    const data = raw.split("\n").find((line) => line.startsWith("data:"));
-    const event = data && JSON.parse(data.slice(5));
+    const event = readEvent(raw);
     if (event?.type === "content_block_start" && event.content_block?.name === loadedTool) {
       held.set(event.index, { start: event, json: "" });
       return "";
@@ -164,18 +237,78 @@ export function unwrapEvents() {
       send({ type: "content_block_delta", index: event.index, delta: { type: "input_json_delta", partial_json: json } }) +
       `${raw}\n\n`
     );
+  });
+}
+
+// Then calls the server sent back as text become tool_use blocks. A text block is
+// held until it shows more than white space, which may only lead up to a call.
+// From a <tool_call> in it on, the reply is held until its message_delta. If the
+// rest of the block is calls and no other block follows, they go out after the
+// text before them and the reply stops for tool use; otherwise all of it goes out
+// as the server sent it.
+export function recoverCalls(schemas = {}) {
+  let block = null; // the open text block: its index, its start event until sent, its text not yet sent
+  let held = null; // the reply's other events after a <tool_call> in that block
+  const textDelta = (text) =>
+    send({ type: "content_block_delta", index: block.index, delta: { type: "text_delta", text } });
+  const release = () => (block.start ?? "") + (block.text ? textDelta(block.text) : "") + (held?.events ?? "");
+
+  function sendCalls(calls, messageDelta) {
+    let index = block.index;
+    let out = block.start ? "" : send({ type: "content_block_stop", index: index++ });
+    for (const { input, ...call } of calls) {
+      const json = JSON.stringify(input);
+      out +=
+        send({ type: "content_block_start", index, content_block: { ...call, input: {} } }) +
+        send({ type: "content_block_delta", index, delta: { type: "input_json_delta", partial_json: json } }) +
+        send({ type: "content_block_stop", index: index++ });
+    }
+    return out + send({ ...messageDelta, delta: { ...messageDelta.delta, stop_reason: "tool_use" } });
   }
 
-  return new Transform({
-    transform(chunk, _encoding, done) {
-      const events = (buffer + chunk).replace(/\r\n/g, "\n").split("\n\n");
-      buffer = events.pop();
-      done(null, events.map(rewrite).join(""));
-    },
-    flush(done) {
-      done(null, buffer);
-    },
-  });
+  function recover(raw) {
+    const event = readEvent(raw);
+    const own = block !== null && event?.index === block.index;
+    if (held) {
+      if (event?.type === "message_delta") {
+        const calls = !held.other && parseToolCalls(block.text, schemas);
+        const out = calls ? sendCalls(calls, event) : release() + `${raw}\n\n`;
+        block = held = null;
+        return out;
+      }
+      if (own && event.type === "content_block_delta") block.text += event.delta?.text ?? "";
+      else {
+        held.events += `${raw}\n\n`;
+        held.other ||= !own && String(event?.type).startsWith("content_block");
+      }
+      return "";
+    }
+    if (event?.type === "content_block_start" && event.content_block?.type === "text") {
+      block = { index: event.index, start: `${raw}\n\n`, text: "" };
+      return "";
+    }
+    if (!own) return `${raw}\n\n`;
+    if (event.type === "content_block_stop") {
+      const out = release() + `${raw}\n\n`;
+      block = null;
+      return out;
+    }
+    const text = event.delta?.text ?? "";
+    if (!block.start && !text.includes(callTag)) return `${raw}\n\n`;
+    block.text += text;
+    const at = block.text.indexOf(callTag);
+    const before = at < 0 ? block.text : block.text.slice(0, at);
+    let out = "";
+    if (before.trim()) {
+      out = (block.start ?? "") + textDelta(before);
+      block.start = null;
+      block.text = block.text.slice(before.length);
+    }
+    if (at >= 0) held = { events: "", other: false };
+    return out;
+  }
+
+  return eventStream(recover, () => (block ? release() : ""));
 }
 
 export function rewriteRequest(body, models = {}, notes = "") {
@@ -356,6 +489,7 @@ function start(upstream, command) {
     req.on("end", async () => {
       let body = Buffer.concat(chunks);
       let target = upstream;
+      let schemas = {};
       const messages = req.method === "POST" && req.url.split("?")[0] === "/v1/messages";
       if (req.method === "POST" && req.url.startsWith("/v1/messages")) {
         try {
@@ -368,6 +502,7 @@ function start(upstream, command) {
             return;
           }
           if (cloud) target = anthropic;
+          else schemas = loadedSchemas(body.toString());
           body = Buffer.from(cloud ?? rewriteRequest(body.toString(), models, notes));
         } catch {} // Not JSON we understand: forward it as received.
       }
@@ -392,14 +527,14 @@ function start(upstream, command) {
           res.writeHead(200, headers);
           response.setEncoding("utf8");
           if (String(headers["content-type"]).startsWith("text/event-stream")) {
-            response.pipe(unwrapEvents()).pipe(res);
+            response.pipe(unwrapEvents()).pipe(recoverCalls(schemas)).pipe(res);
             return;
           }
           let reply = "";
           response.on("data", (chunk) => (reply += chunk));
           response.on("end", () => {
             try {
-              res.end(unwrapReply(reply));
+              res.end(unwrapReply(reply, schemas));
             } catch {
               res.end(reply);
             }
