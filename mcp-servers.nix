@@ -181,7 +181,13 @@ let
     # Computer use: screenshots, clicks, typing. Installed by peekaboo.nix.
     peekaboo = {
       command = "peekaboo";
-      args = [ "mcp" ];
+      # Without this, each session claims screen capture for itself and every
+      # session after the first fails to start.
+      args = [
+        "mcp"
+        "--bridge-socket"
+        "${config.home.homeDirectory}/Library/Application Support/Peekaboo/bridge.sock"
+      ];
     };
   };
 

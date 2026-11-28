@@ -29,9 +29,10 @@ let
     ] (builtins.readFile ./scripts/claude-local.sh);
   };
 
-  # Claude Code reaches Atlassian, Slack and Gmail through claude.ai connectors, so the
+  # Claude Code reaches Aftershoot, Atlassian, Slack and Gmail through claude.ai connectors, so the
   # local MCP servers would only duplicate them (slack and gmail would call Claude Code itself).
   claudeMcpServers = builtins.removeAttrs mcpData.mcpServers [
+    "aftershoot-mcp"
     "atlassian"
     "slack"
     "gmail"
@@ -39,8 +40,7 @@ let
 
   hasMcp = name: builtins.hasAttr name claudeMcpServers;
   claudeMcpAllows =
-    lib.optionals (hasMcp "aftershoot-mcp") [ "mcp__aftershoot-mcp" ]
-    ++ lib.optionals (hasMcp "bestiary") [ "mcp__bestiary" ]
+    lib.optionals (hasMcp "bestiary") [ "mcp__bestiary" ]
     ++ lib.optionals (hasMcp "firefox-devtools") [ "mcp__firefox-devtools" ]
     ++ lib.optionals (hasMcp "playwright") [ "mcp__playwright" ];
 
